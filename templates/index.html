@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resource Tycoon - Multiplayer Resource Management Game</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800&family=Rajdhani:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <!-- Login Screen -->
+    <div id="login-screen" class="screen active">
+        <div class="login-container">
+            <div class="logo-container">
+                <h1 class="game-logo">
+                    <span class="logo-icon">⚙️</span>
+                    <span class="logo-text">RESOURCE</span>
+                    <span class="logo-text accent">TYCOON</span>
+                </h1>
+                <p class="tagline">Build Your Industrial Empire</p>
+            </div>
+            
+            <div class="login-form">
+                <div class="auth-tabs">
+                    <button class="auth-tab active" data-mode="login">Login</button>
+                    <button class="auth-tab" data-mode="register">Register</button>
+                </div>
+                
+                <div id="auth-error" class="auth-error hidden"></div>
+                
+                <div class="input-group">
+                    <label for="username">Username</label>
+                    <input type="text" id="username" placeholder="YourName" maxlength="20" autocomplete="username">
+                </div>
+                <div class="input-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" placeholder="••••••••" autocomplete="current-password">
+                </div>
+                <div class="input-group" id="confirm-group" style="display: none;">
+                    <label for="password-confirm">Confirm Password</label>
+                    <input type="password" id="password-confirm" placeholder="••••••••">
+                </div>
+                
+                <button id="play-btn" class="btn btn-primary btn-large">
+                    <span id="auth-btn-text">LOGIN</span>
+                    <span class="btn-icon">🚀</span>
+                </button>
+                
+                <p class="auth-hint" id="auth-hint">Your progress will be saved!</p>
+            </div>
+            
+            <div class="player-count">
+                <span id="online-count">0</span> Tycoons Online
+            </div>
+        </div>
+        
+        <div class="login-features">
+            <div class="feature">
+                <span class="feature-icon">🏭</span>
+                <span>Build Factories</span>
+            </div>
+            <div class="feature">
+                <span class="feature-icon">💰</span>
+                <span>Trade Resources</span>
+            </div>
+            <div class="feature">
+                <span class="feature-icon">🏆</span>
+                <span>Compete & Conquer</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Game Screen -->
+    <div id="game-screen" class="screen">
+        <!-- Top Navigation Bar -->
+        <header class="top-bar">
+            <div class="player-info">
+                <div class="player-avatar">👤</div>
+                <div class="player-details">
+                    <span id="player-name" class="player-name">Player</span>
+                    <div class="level-bar">
+                        <span class="level-badge">Lv.<span id="player-level">1</span></span>
+                        <div class="xp-bar-container">
+                            <div class="xp-bar">
+                                <div id="xp-progress" class="xp-progress" style="width: 0%"></div>
+                            </div>
+                            <span id="xp-tracker" class="xp-tracker" title="Click for details">0/100 XP (0%)</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="resource-bar">
+                <div class="currency">
+                    <span class="currency-icon">💰</span>
+                    <span id="player-money" class="currency-amount">$100</span>
+                </div>
+                <div class="eco-points">
+                    <span class="eco-icon">🌱</span>
+                    <span id="player-eco">0</span>
+                </div>
+                <div class="pollution-meter" title="Pollution Level">
+                    <span class="pollution-icon">🏭</span>
+                    <div class="pollution-bar">
+                        <div id="pollution-level" class="pollution-fill" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="top-actions">
+                <button id="btn-leaderboard" class="icon-btn" title="Leaderboard">🏆</button>
+                <button id="btn-challenges" class="icon-btn" title="Challenges">📋</button>
+                <button id="btn-settings" class="icon-btn" title="Settings">⚙️</button>
+            </div>
+        </header>
+
+        <!-- Event Banner -->
+        <div id="event-banner" class="event-banner hidden">
+            <span id="event-icon" class="event-icon">⚡</span>
+            <span id="event-text" class="event-text">Event Active!</span>
+            <span id="event-timer" class="event-timer">5:00</span>
+        </div>
+
+        <!-- Main Game Area -->
+        <main class="game-main">
+            <!-- Left Sidebar - Resources -->
+            <aside class="sidebar sidebar-left">
+                <div class="panel resources-panel">
+                    <h2 class="panel-title">
+                        <span class="panel-icon">📦</span>
+                        Resources
+                    </h2>
+                    <div id="resources-list" class="resources-list">
+                        <!-- Resources populated by JS -->
+                    </div>
+                </div>
+                
+                <div class="panel gather-panel">
+                    <h2 class="panel-title">
+                        <span class="panel-icon">⛏️</span>
+                        Gather
+                    </h2>
+                    <div id="gather-buttons" class="gather-buttons">
+                        <!-- Gather buttons populated by JS -->
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Center - Main Content -->
+            <section class="main-content">
+                <!-- Navigation Tabs -->
+                <nav class="tab-nav">
+                    <button class="tab-btn active" data-tab="buildings">
+                        <span class="tab-icon">🏭</span>
+                        <span>Buildings</span>
+                    </button>
+                    <button class="tab-btn" data-tab="crafting">
+                        <span class="tab-icon">🔨</span>
+                        <span>Crafting</span>
+                    </button>
+                    <button class="tab-btn" data-tab="market">
+                        <span class="tab-icon">📈</span>
+                        <span>Market</span>
+                    </button>
+                    <button class="tab-btn" data-tab="auction">
+                        <span class="tab-icon">🔨</span>
+                        <span>Auction</span>
+                    </button>
+                    <button class="tab-btn" data-tab="trade">
+                        <span class="tab-icon">🤝</span>
+                        <span>Trade</span>
+                    </button>
+                </nav>
+
+                <!-- Tab Content -->
+                <div class="tab-content">
+                    <!-- Buildings Tab -->
+                    <div id="tab-buildings" class="tab-pane active">
+                        <div class="buildings-header">
+                            <h3>Your Empire</h3>
+                            <div class="building-filters">
+                                <button class="filter-btn active" data-tier="all">All</button>
+                                <button class="filter-btn" data-tier="1">Tier 1</button>
+                                <button class="filter-btn" data-tier="2">Tier 2</button>
+                                <button class="filter-btn" data-tier="3">Tier 3+</button>
+                            </div>
+                        </div>
+                        <div id="owned-buildings" class="buildings-owned">
+                            <!-- Owned buildings -->
+                        </div>
+                        <h3 class="section-title">Available Buildings</h3>
+                        <div id="available-buildings" class="buildings-grid">
+                            <!-- Available buildings populated by JS -->
+                        </div>
+                    </div>
+
+                    <!-- Crafting Tab -->
+                    <div id="tab-crafting" class="tab-pane">
+                        <div id="active-craft" class="active-craft hidden">
+                            <h3>Currently Crafting</h3>
+                            <div class="craft-progress-container">
+                                <span id="crafting-item" class="crafting-item">Item</span>
+                                <div class="craft-progress-bar">
+                                    <div id="craft-progress" class="craft-progress-fill"></div>
+                                </div>
+                                <span id="craft-time" class="craft-time">0s</span>
+                            </div>
+                        </div>
+                        <h3 class="section-title">Recipes</h3>
+                        <div id="recipes-grid" class="recipes-grid">
+                            <!-- Recipes populated by JS -->
+                        </div>
+                    </div>
+
+                    <!-- Market Tab -->
+                    <div id="tab-market" class="tab-pane">
+                        <div class="market-header">
+                            <h3>Dynamic Market</h3>
+                            <p class="market-info">Prices update every 30 seconds based on supply & demand</p>
+                        </div>
+                        <div id="market-grid" class="market-grid">
+                            <!-- Market items populated by JS -->
+                        </div>
+                    </div>
+
+                    <!-- Auction Tab -->
+                    <div id="tab-auction" class="tab-pane">
+                        <div class="auction-header">
+                            <h3>Auction House</h3>
+                            <button id="btn-create-auction" class="btn btn-primary">
+                                + Create Auction
+                            </button>
+                        </div>
+                        <div id="auctions-list" class="auctions-list">
+                            <!-- Auctions populated by JS -->
+                        </div>
+                    </div>
+
+                    <!-- Trade Tab -->
+                    <div id="tab-trade" class="tab-pane">
+                        <div class="trade-header">
+                            <h3>Player Trading</h3>
+                            <button id="btn-refresh-players" class="btn btn-secondary">
+                                🔄 Refresh
+                            </button>
+                        </div>
+                        <div id="players-list" class="players-list">
+                            <!-- Players populated by JS -->
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Right Sidebar -->
+            <aside class="sidebar sidebar-right">
+                <div class="panel production-panel">
+                    <h2 class="panel-title">
+                        <span class="panel-icon">⚡</span>
+                        Production
+                    </h2>
+                    <div id="production-stats" class="production-stats">
+                        <div class="stat">
+                            <span class="stat-label">Income/min</span>
+                            <span id="income-per-min" class="stat-value">$0</span>
+                        </div>
+                        <div class="stat">
+                            <span class="stat-label">Buildings</span>
+                            <span id="total-buildings" class="stat-value">0</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="panel mini-leaderboard">
+                    <h2 class="panel-title">
+                        <span class="panel-icon">🏆</span>
+                        Top Tycoons
+                    </h2>
+                    <div id="mini-leaderboard" class="mini-rankings">
+                        <!-- Top players -->
+                    </div>
+                </div>
+
+                <div class="panel chat-panel">
+                    <h2 class="panel-title">
+                        <span class="panel-icon">💬</span>
+                        Chat
+                    </h2>
+                    <div id="chat-messages" class="chat-messages">
+                        <!-- Chat messages -->
+                    </div>
+                    <div class="chat-input-area">
+                        <input type="text" id="chat-input" placeholder="Type a message..." maxlength="200">
+                        <button id="btn-send-chat" class="btn btn-small btn-primary">Send</button>
+                    </div>
+                </div>
+
+                <div class="panel notifications-panel">
+                    <h2 class="panel-title">
+                        <span class="panel-icon">📢</span>
+                        Activity
+                    </h2>
+                    <div id="notifications" class="notifications-list">
+                        <!-- Notifications -->
+                    </div>
+                </div>
+            </aside>
+        </main>
+
+        <!-- Tutorial Button -->
+        <button id="btn-help" class="help-btn" title="Help & Tutorial">❓</button>
+    </div>
+
+    <!-- Tutorial Modal -->
+    <div id="modal-tutorial" class="modal hidden">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h2>📚 Game Tutorial</h2>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="tutorial-steps">
+                    <div class="tutorial-step active" data-step="0">
+                        <h3>👋 Welcome to Resource Tycoon!</h3>
+                        <p>Build your industrial empire by gathering resources, constructing buildings, and trading with other players!</p>
+                        <div class="tutorial-content">
+                            <h4>Getting Started:</h4>
+                            <ul>
+                                <li>🌲 <strong>Gather resources</strong> - Click the gather buttons on the left to collect wood, stone, and water</li>
+                                <li>💰 <strong>Sell resources</strong> - Go to the Market tab to sell your gathered resources for money</li>
+                                <li>🏭 <strong>Buy buildings</strong> - Use your money to purchase buildings that automatically produce resources</li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <div class="tutorial-step" data-step="1">
+                        <h3>🏭 Buildings Tab</h3>
+                        <p>Buildings are the heart of your empire. They automatically produce resources over time!</p>
+                        <div class="tutorial-content">
+                            <ul>
+                                <li><strong>Production buildings</strong> - Generate resources automatically (e.g., Lumber Camp produces Wood)</li>
+                                <li><strong>Processing buildings</strong> - Convert resources into more valuable products (e.g., Sawmill turns Wood into Planks)</li>
+                                <li><strong>Shops</strong> - Generate passive income by selling products automatically</li>
+                                <li><strong>Upgrades</strong> - Level up buildings to increase their efficiency</li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <div class="tutorial-step" data-step="2">
+                        <h3>🔨 Crafting Tab</h3>
+                        <p>Manually craft resources into more valuable items!</p>
+                        <div class="tutorial-content">
+                            <ul>
+                                <li>Crafting lets you convert basic resources into processed materials</li>
+                                <li>Each recipe shows required inputs and what you'll get</li>
+                                <li>Crafting takes time - you can only craft one thing at a time</li>
+                                <li>Higher level recipes unlock as you gain experience</li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <div class="tutorial-step" data-step="3">
+                        <h3>📈 Market Tab</h3>
+                        <p>Buy and sell resources on the dynamic market!</p>
+                        <div class="tutorial-content">
+                            <ul>
+                                <li><strong>Dynamic prices</strong> - Prices change based on supply and demand</li>
+                                <li><strong>Trends</strong> - Watch the arrows to see if prices are rising ↑ or falling ↓</li>
+                                <li><strong>Buy low, sell high</strong> - Make profit by timing your trades!</li>
+                                <li>Market updates every 30 seconds</li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <div class="tutorial-step" data-step="4">
+                        <h3>🤝 Trading & Auctions</h3>
+                        <p>Trade directly with other players for the best deals!</p>
+                        <div class="tutorial-content">
+                            <ul>
+                                <li><strong>Player Trading</strong> - Send trade offers to other players online</li>
+                                <li><strong>Auction House</strong> - Create auctions or bid on resources from other players</li>
+                                <li>Player trades often get better prices than the market!</li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <div class="tutorial-step" data-step="5">
+                        <h3>🏭 Pollution & Environment</h3>
+                        <p>Industrial activities generate pollution - manage it wisely!</p>
+                        <div class="tutorial-content">
+                            <ul>
+                                <li><strong>Pollution meter</strong> (top bar) - Shows your current pollution level</li>
+                                <li>High pollution reduces gathering efficiency</li>
+                                <li><strong>Clean energy</strong> - Build Solar Farms and Wind Farms for pollution-free power</li>
+                                <li><strong>Eco Points</strong> 🌱 - Earned from clean energy buildings</li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <div class="tutorial-step" data-step="6">
+                        <h3>🏆 Leaderboards & Challenges</h3>
+                        <p>Compete with other players and complete challenges!</p>
+                        <div class="tutorial-content">
+                            <ul>
+                                <li><strong>Leaderboards</strong> - Compete for #1 in wealth, level, production, and more</li>
+                                <li><strong>Daily Challenges</strong> - Complete goals for bonus rewards</li>
+                                <li><strong>Weekly Challenges</strong> - Bigger goals with bigger rewards</li>
+                                <li><strong>Random Events</strong> - Market crashes, booms, and special bonuses!</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="tutorial-nav">
+                    <button id="tutorial-prev" class="btn btn-secondary" disabled>← Previous</button>
+                    <span class="tutorial-progress">
+                        <span id="tutorial-current">1</span> / <span id="tutorial-total">7</span>
+                    </span>
+                    <button id="tutorial-next" class="btn btn-primary">Next →</button>
+                </div>
+                
+                <div class="tutorial-footer">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="dont-show-tutorial">
+                        Don't show this again
+                    </label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <!-- Leaderboard Modal -->
+    <div id="modal-leaderboard" class="modal hidden">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h2>🏆 Leaderboards</h2>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="leaderboard-tabs">
+                    <button class="lb-tab active" data-category="wealth">💰 Wealth</button>
+                    <button class="lb-tab" data-category="level">⭐ Level</button>
+                    <button class="lb-tab" data-category="production">🏭 Production</button>
+                    <button class="lb-tab" data-category="trader">🤝 Trading</button>
+                    <button class="lb-tab" data-category="time_played">⏱️ Time</button>
+                </div>
+                <div id="leaderboard-content" class="leaderboard-content">
+                    <!-- Leaderboard content -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Challenges Modal -->
+    <div id="modal-challenges" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>📋 Challenges</h2>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="challenges-section">
+                    <h3>Daily Challenges</h3>
+                    <div id="daily-challenges" class="challenges-list">
+                        <!-- Daily challenges -->
+                    </div>
+                </div>
+                <div class="challenges-section">
+                    <h3>Weekly Challenges</h3>
+                    <div id="weekly-challenges" class="challenges-list">
+                        <!-- Weekly challenges -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="modal-settings" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>⚙️ Settings</h2>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body settings-body">
+                <!-- Account Section -->
+                <div class="settings-section">
+                    <h3 class="settings-section-title">👤 Account</h3>
+                    <div class="settings-account-info">
+                        <div class="account-row">
+                            <span class="account-label">Username:</span>
+                            <span id="settings-username" class="account-value">-</span>
+                        </div>
+                        <div class="account-row">
+                            <span class="account-label">Level:</span>
+                            <span id="settings-level" class="account-value">-</span>
+                        </div>
+                        <div class="account-row">
+                            <span class="account-label">Time Played:</span>
+                            <span id="settings-time-played" class="account-value">-</span>
+                        </div>
+                    </div>
+                    <button id="btn-logout" class="btn btn-danger btn-block">
+                        🚪 Logout
+                    </button>
+                </div>
+
+                <!-- Sound Section -->
+                <div class="settings-section">
+                    <h3 class="settings-section-title">🔊 Sound</h3>
+                    <div class="settings-row">
+                        <label for="settings-master-volume">Master Volume</label>
+                        <div class="volume-control">
+                            <input type="range" id="settings-master-volume" min="0" max="100" value="50">
+                            <span id="volume-value">50%</span>
+                        </div>
+                    </div>
+                    <div class="settings-row">
+                        <label for="settings-mute">Mute All Sounds</label>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="settings-mute">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="settings-row">
+                        <label for="settings-sfx">Sound Effects</label>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="settings-sfx" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="settings-row">
+                        <label for="settings-notifications-sound">Notification Sounds</label>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="settings-notifications-sound" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Display Section -->
+                <div class="settings-section">
+                    <h3 class="settings-section-title">🎨 Display</h3>
+                    <div class="settings-row">
+                        <label for="settings-animations">UI Animations</label>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="settings-animations" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="settings-row">
+                        <label for="settings-compact">Compact Mode</label>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="settings-compact">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="settings-row">
+                        <label for="settings-show-rates">Show Production Rates</label>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="settings-show-rates" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Notifications Section -->
+                <div class="settings-section">
+                    <h3 class="settings-section-title">🔔 Notifications</h3>
+                    <div class="settings-row">
+                        <label for="settings-toast-notifications">Toast Notifications</label>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="settings-toast-notifications" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="settings-row">
+                        <label for="settings-trade-notifications">Trade Alerts</label>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="settings-trade-notifications" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="settings-row">
+                        <label for="settings-event-notifications">Event Alerts</label>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="settings-event-notifications" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Other Section -->
+                <div class="settings-section">
+                    <h3 class="settings-section-title">📚 Other</h3>
+                    <button id="btn-reset-tutorial" class="btn btn-secondary btn-block">
+                        🎓 Replay Tutorial
+                    </button>
+                    <button id="btn-export-data" class="btn btn-secondary btn-block">
+                        💾 Export Save Data
+                    </button>
+                </div>
+
+                <!-- Version Info -->
+                <div class="settings-footer">
+                    <span class="version-info">Resource Tycoon v1.0.0</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Auction Modal -->
+    <div id="modal-create-auction" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Create Auction</h2>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Resource</label>
+                    <select id="auction-resource"></select>
+                </div>
+                <div class="form-group">
+                    <label>Amount</label>
+                    <input type="number" id="auction-amount" min="1" value="1">
+                </div>
+                <div class="form-group">
+                    <label>Starting Price ($)</label>
+                    <input type="number" id="auction-price" min="1" value="10">
+                </div>
+                <div class="form-group">
+                    <label>Duration</label>
+                    <select id="auction-duration">
+                        <option value="60">1 minute</option>
+                        <option value="300" selected>5 minutes</option>
+                        <option value="600">10 minutes</option>
+                        <option value="1800">30 minutes</option>
+                        <option value="3600">1 hour</option>
+                    </select>
+                </div>
+                <button id="btn-submit-auction" class="btn btn-primary btn-block">
+                    Create Auction
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Trade Modal -->
+    <div id="modal-trade" class="modal hidden">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h2>Trade with <span id="trade-partner-name">Player</span></h2>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="trade-columns">
+                    <div class="trade-column">
+                        <h3>You Offer</h3>
+                        <div id="trade-offer" class="trade-items"></div>
+                        <div class="trade-add">
+                            <select id="offer-resource"></select>
+                            <input type="number" id="offer-amount" min="1" value="1">
+                            <button id="btn-add-offer" class="btn btn-small">Add</button>
+                        </div>
+                        <div class="trade-money">
+                            <label>Money: $</label>
+                            <input type="number" id="offer-money" min="0" value="0">
+                        </div>
+                    </div>
+                    <div class="trade-arrow">⇄</div>
+                    <div class="trade-column">
+                        <h3>You Request</h3>
+                        <div id="trade-request" class="trade-items"></div>
+                        <div class="trade-add">
+                            <select id="request-resource"></select>
+                            <input type="number" id="request-amount" min="1" value="1">
+                            <button id="btn-add-request" class="btn btn-small">Add</button>
+                        </div>
+                        <div class="trade-money">
+                            <label>Money: $</label>
+                            <input type="number" id="request-money" min="0" value="0">
+                        </div>
+                    </div>
+                </div>
+                <button id="btn-send-trade" class="btn btn-primary btn-block">
+                    Send Trade Offer
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Incoming Trade Modal -->
+    <div id="modal-incoming-trade" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>📨 Trade Offer from <span id="incoming-trader-name">Player</span></h2>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="incoming-trade-details">
+                    <div class="trade-side">
+                        <h4>They Offer:</h4>
+                        <div id="incoming-offering"></div>
+                    </div>
+                    <div class="trade-side">
+                        <h4>They Request:</h4>
+                        <div id="incoming-requesting"></div>
+                    </div>
+                </div>
+                <div class="trade-actions">
+                    <button id="btn-accept-trade" class="btn btn-primary">✓ Accept</button>
+                    <button id="btn-decline-trade" class="btn btn-danger">✗ Decline</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+    <script src="/static/js/game.js"></script>
+</body>
+</html>
+
