@@ -1,6 +1,6 @@
 """
-Resource Tycoon - Main Application
-A multiplayer resource management tycoon game
+Game Portal - Main Application
+Multi-game server with Resource Tycoon and Castle Defenders
 """
 
 import time
@@ -8,9 +8,18 @@ import threading
 from flask import Flask, render_template, send_from_directory
 from flask_socketio import SocketIO, emit
 
+# Resource Tycoon imports
 from game import GameState
 from game.systems import MarketSystem, AuctionSystem, EventSystem, LeaderboardSystem
 from game.data import RESOURCES, BUILDINGS, RECIPES
+
+# Castle Defenders imports
+from game.castle_defenders import (
+    TOWER_TYPES, ENEMY_TYPES, PERKS,
+    CastleGameManager, CastleGame
+)
+from game.castle_defenders.player import CastlePlayerManager
+from game.castle_defenders.game_data import xp_for_level, get_unlocked_towers
 
 # Initialize Flask app
 app = Flask(__name__, 
@@ -27,12 +36,17 @@ except ValueError:
     except ValueError:
         socketio = SocketIO(app, cors_allowed_origins="*")
 
-# Initialize game systems
+# Initialize Resource Tycoon game systems
 game_state = GameState(data_dir='data')
 market = MarketSystem(game_state)
 auction = AuctionSystem(game_state, socketio)
 events = EventSystem(game_state, socketio)
 leaderboard = LeaderboardSystem(game_state)
+
+# Initialize Castle Defenders game systems
+cd_player_manager = CastlePlayerManager(data_dir='data')
+cd_game_manager = CastleGameManager()
+cd_socket_to_game = {}  # socket_id -> game_id mapping
 
 
 # =============================================
@@ -57,6 +71,12 @@ def game_redirect():
     """Redirect to Resource Tycoon"""
     from flask import redirect
     return redirect('/resource-tycoon')
+
+
+@app.route('/castle-defenders')
+def castle_defenders():
+    """Serve the Castle Defenders game"""
+    return render_template('castle-defenders.html')
 
 
 @app.route('/api/resources')
@@ -526,6 +546,200 @@ def handle_pollution_cleanup():
 
 
 # =============================================
+# Castle Defenders SocketIO Events
+# =============================================
+
+@socketio.on('cd:login')
+def handle_cd_login(data):
+    """Castle Defenders player login"""
+    from flask import request
+    player_id = data.get('playerId')
+    player_name = data.get('playerName', 'Hero')
+    
+    player = cd_player_manager.get_or_create_player(player_id, player_name)
+    cd_player_manager.connect_player(request.sid, player_id)
+    
+    emit('cd:loginSuccess', {
+        'profile': player.to_dict(),
+        'towerTypes': TOWER_TYPES,
+        'perks': PERKS,
+        'unlockedTowers': get_unlocked_towers(player.level),
+        'xpForNextLevel': xp_for_level(player.level + 1)
+    })
+
+
+@socketio.on('cd:joinGame')
+def handle_cd_join_game():
+    """Castle Defenders player joins a game"""
+    from flask import request
+    
+    player = cd_player_manager.get_player_by_socket(request.sid)
+    if not player:
+        emit('cd:error', {'message': 'Please login first'})
+        return
+    
+    game = cd_game_manager.find_or_create_game()
+    game_player = game.add_player(request.sid, player)
+    cd_socket_to_game[request.sid] = game.id
+    
+    # Start game if in waiting state
+    if game.state == 'waiting':
+        game.state = 'playing'
+    
+    emit('cd:gameJoined', {
+        'gameId': game.id,
+        'state': game.get_state(),
+        'playerId': request.sid
+    })
+    
+    # Notify others
+    for other_id in game.players:
+        if other_id != request.sid:
+            socketio.emit('cd:playerJoined', {
+                'playerId': request.sid,
+                'playerName': player.name,
+                'playerLevel': player.level
+            }, room=other_id)
+
+
+@socketio.on('cd:startWave')
+def handle_cd_start_wave():
+    """Start the next wave in Castle Defenders"""
+    from flask import request
+    
+    game_id = cd_socket_to_game.get(request.sid)
+    if not game_id:
+        return
+    
+    game = cd_game_manager.get_game(game_id)
+    if not game or game.state != 'playing':
+        return
+    
+    game.start_wave()
+    
+    for player_id in game.players:
+        socketio.emit('cd:waveStarted', {'wave': game.wave}, room=player_id)
+
+
+@socketio.on('cd:placeTower')
+def handle_cd_place_tower(data):
+    """Place a tower in Castle Defenders"""
+    from flask import request
+    
+    game_id = cd_socket_to_game.get(request.sid)
+    if not game_id:
+        return
+    
+    game = cd_game_manager.get_game(game_id)
+    if not game:
+        return
+    
+    result = game.place_tower(request.sid, data.get('plotId'), data.get('towerType'))
+    
+    if result['success']:
+        for player_id in game.players:
+            socketio.emit('cd:towerPlaced', {
+                'tower': result['tower'],
+                'playerId': request.sid
+            }, room=player_id)
+    else:
+        emit('cd:actionFailed', {'error': result['error']})
+
+
+@socketio.on('cd:sellTower')
+def handle_cd_sell_tower(data):
+    """Sell a tower in Castle Defenders"""
+    from flask import request
+    
+    game_id = cd_socket_to_game.get(request.sid)
+    if not game_id:
+        return
+    
+    game = cd_game_manager.get_game(game_id)
+    if not game:
+        return
+    
+    result = game.sell_tower(request.sid, data.get('plotId'))
+    
+    if result['success']:
+        for player_id in game.players:
+            socketio.emit('cd:towerSold', {
+                'plotId': data.get('plotId'),
+                'playerId': request.sid,
+                'refund': result['refund']
+            }, room=player_id)
+    else:
+        emit('cd:actionFailed', {'error': result['error']})
+
+
+@socketio.on('cd:buyPerk')
+def handle_cd_buy_perk(data):
+    """Buy a perk upgrade in Castle Defenders"""
+    from flask import request
+    
+    player = cd_player_manager.get_player_by_socket(request.sid)
+    if not player:
+        return
+    
+    perk_id = data.get('perkId')
+    if player.buy_perk(perk_id):
+        cd_player_manager.save_players()
+        emit('cd:perkBought', {
+            'perkId': perk_id,
+            'newLevel': player.perks.get(perk_id, 0),
+            'remainingPoints': player.perk_points
+        })
+    else:
+        emit('cd:actionFailed', {'error': 'Could not buy perk'})
+
+
+@socketio.on('cd:chat')
+def handle_cd_chat(data):
+    """Castle Defenders chat message"""
+    from flask import request
+    
+    game_id = cd_socket_to_game.get(request.sid)
+    player = cd_player_manager.get_player_by_socket(request.sid)
+    
+    if not game_id or not player:
+        return
+    
+    game = cd_game_manager.get_game(game_id)
+    if not game:
+        return
+    
+    message = data.get('message', '')[:200]
+    
+    for player_id in game.players:
+        socketio.emit('cd:chat', {
+            'playerId': request.sid,
+            'playerName': player.name,
+            'message': message
+        }, room=player_id)
+
+
+@socketio.on('disconnect')
+def handle_cd_disconnect():
+    """Handle Castle Defenders player disconnect"""
+    from flask import request
+    
+    # Handle Castle Defenders disconnect
+    game_id = cd_socket_to_game.pop(request.sid, None)
+    if game_id:
+        game = cd_game_manager.get_game(game_id)
+        if game:
+            game.remove_player(request.sid)
+            
+            for player_id in game.players:
+                socketio.emit('cd:playerLeft', {'playerId': request.sid}, room=player_id)
+            
+            if not game.players:
+                cd_game_manager.remove_game(game_id)
+    
+    cd_player_manager.disconnect_player(request.sid)
+
+
+# =============================================
 # Background Tasks
 # =============================================
 
@@ -621,6 +835,43 @@ def auction_tick():
             print(f"Auction tick error: {e}")
 
 
+def castle_defenders_tick():
+    """Castle Defenders game update loop"""
+    import time as time_module
+    last_update = time_module.time() * 1000
+    
+    while True:
+        try:
+            time_module.sleep(0.05)  # 20 updates per second
+            now = time_module.time() * 1000
+            delta_time = now - last_update
+            last_update = now
+            
+            for game in list(cd_game_manager.games.values()):
+                if game.state == 'playing':
+                    game.update(delta_time)
+                    
+                    # Send state to all players
+                    state = game.get_state()
+                    for player_id in game.players:
+                        socketio.emit('cd:gameState', state, room=player_id)
+                    
+                    # Check for game end
+                    if game.state == 'ended':
+                        results = game.end_game()
+                        cd_player_manager.save_players()
+                        
+                        for player_id in list(game.players.keys()):
+                            socketio.emit('cd:gameEnded', {
+                                'wave': game.wave,
+                                'results': results
+                            }, room=player_id)
+        except Exception as e:
+            print(f"Castle Defenders tick error: {e}")
+            import traceback
+            traceback.print_exc()
+
+
 # =============================================
 # Background Thread Management
 # =============================================
@@ -636,18 +887,22 @@ def start_background_threads():
     
     import threading
     
-    # Start background tasks as daemon threads
+    # Start Resource Tycoon background tasks
     game_thread = threading.Thread(target=game_tick, daemon=True, name="GameTick")
     market_thread = threading.Thread(target=market_tick, daemon=True, name="MarketTick")
     event_thread = threading.Thread(target=event_tick, daemon=True, name="EventTick")
     auction_thread = threading.Thread(target=auction_tick, daemon=True, name="AuctionTick")
     
+    # Start Castle Defenders background task
+    cd_thread = threading.Thread(target=castle_defenders_tick, daemon=True, name="CastleDefendersTick")
+    
     game_thread.start()
     market_thread.start()
     event_thread.start()
     auction_thread.start()
+    cd_thread.start()
     
-    print("Background threads started: GameTick, MarketTick, EventTick, AuctionTick")
+    print("Background threads started: GameTick, MarketTick, EventTick, AuctionTick, CastleDefendersTick")
 
 
 # =============================================
