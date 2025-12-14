@@ -186,19 +186,24 @@ class CastleGame:
         self.path = self._generate_path()
     
     def _generate_plots(self) -> List[Plot]:
-        """Generate buildable plot positions"""
+        """Generate buildable plot positions - carefully placed to avoid the path"""
         plot_positions = [
-            # Left side
-            {"x": 150, "y": 150}, {"x": 150, "y": 300}, {"x": 150, "y": 450},
-            # Top area
-            {"x": 300, "y": 100}, {"x": 450, "y": 100}, {"x": 600, "y": 100},
-            # Middle area
-            {"x": 300, "y": 250}, {"x": 450, "y": 250}, {"x": 600, "y": 250},
-            {"x": 300, "y": 400}, {"x": 450, "y": 400}, {"x": 600, "y": 400},
-            # Right side
-            {"x": 750, "y": 150}, {"x": 750, "y": 300}, {"x": 750, "y": 450},
+            # Far left column (away from path)
+            {"x": 50, "y": 180}, {"x": 50, "y": 420},
+            # Left of first turn
+            {"x": 170, "y": 120}, {"x": 170, "y": 420}, {"x": 170, "y": 520},
+            # Between first and second path segments
+            {"x": 320, "y": 280}, {"x": 320, "y": 480},
+            # Top row (above path)
+            {"x": 480, "y": 80}, {"x": 620, "y": 80},
+            # Middle area (between path loops)
+            {"x": 480, "y": 280}, {"x": 620, "y": 320},
             # Bottom area
-            {"x": 300, "y": 550}, {"x": 450, "y": 550}, {"x": 600, "y": 550}
+            {"x": 480, "y": 520}, {"x": 620, "y": 520},
+            # Right side (near castle but not on path)
+            {"x": 780, "y": 180}, {"x": 780, "y": 480},
+            # Extra strategic spots
+            {"x": 200, "y": 280}, {"x": 680, "y": 200}
         ]
         
         return [Plot(i, pos["x"], pos["y"]) for i, pos in enumerate(plot_positions)]
