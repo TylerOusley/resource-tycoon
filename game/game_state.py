@@ -224,13 +224,13 @@ class GameState:
     
     # === Building Actions ===
     
-    def buy_building(self, socket_id: str, building_id: str) -> Dict[str, Any]:
-        """Player buys a building"""
+    def buy_building(self, socket_id: str, building_id: str, amount: int = 1) -> Dict[str, Any]:
+        """Player buys a building (supports bulk purchase)"""
         player = self.get_player(socket_id)
         if not player:
             return {"success": False, "message": "Player not found"}
         
-        result = player.buy_building(building_id)
+        result = player.buy_building(building_id, amount)
         if result["success"]:
             self.save_player(player.id)
         return result
@@ -369,9 +369,14 @@ class GameState:
             
             if production_update["income"] > 0 or production_update["produced"]:
                 update["production"] = production_update
+                # Track passive income for challenges
+                update["passive_income_earned"] = production_update["income"]
             
             if craft_update and craft_update.get("completed"):
                 update["craft_completed"] = craft_update
+            
+            # Include socket_id for challenge tracking
+            update["socket_id"] = player.socket_id
             
             updates[player_id] = update
         
