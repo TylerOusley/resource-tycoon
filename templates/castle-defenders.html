@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Castle Defenders Online</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/castle-defenders.css">
+</head>
+<body>
+  <!-- Back to Portal Button -->
+  <a href="/" class="back-btn">← Back to Portal</a>
+
+  <!-- Login Screen -->
+  <div id="login-screen" class="screen active">
+    <div class="login-container">
+      <div class="title-banner">
+        <div class="banner-ornament left"></div>
+        <h1>Castle Defenders</h1>
+        <div class="banner-ornament right"></div>
+      </div>
+      <p class="subtitle">Unite. Defend. Conquer.</p>
+      
+      <div class="login-form">
+        <div class="input-group">
+          <label for="player-name">Enter Your Name, Defender</label>
+          <input type="text" id="player-name" placeholder="Sir Galahad" maxlength="20">
+        </div>
+        <button id="play-btn" class="btn-primary">
+          <span class="btn-icon">⚔️</span>
+          Enter the Realm
+        </button>
+      </div>
+
+      <div class="login-features">
+        <div class="feature">
+          <span class="feature-icon">🏰</span>
+          <span>Defend Together</span>
+        </div>
+        <div class="feature">
+          <span class="feature-icon">⬆️</span>
+          <span>Level Up</span>
+        </div>
+        <div class="feature">
+          <span class="feature-icon">🗼</span>
+          <span>12 Unique Towers</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Lobby Screen -->
+  <div id="lobby-screen" class="screen">
+    <div class="lobby-container">
+      <div class="player-profile-card">
+        <div class="profile-header">
+          <div class="level-badge" id="profile-level">1</div>
+          <div class="profile-info">
+            <h2 id="profile-name">Player</h2>
+            <div class="xp-bar-container">
+              <div class="xp-bar" id="profile-xp-bar"></div>
+              <span class="xp-text" id="profile-xp-text">0 / 100 XP</span>
+            </div>
+          </div>
+          <div class="perk-points" id="perk-points-display">
+            <span class="points-count">0</span>
+            <span class="points-label">Perk Points</span>
+          </div>
+        </div>
+        
+        <div class="profile-stats">
+          <div class="stat">
+            <span class="stat-value" id="stat-games">0</span>
+            <span class="stat-label">Games</span>
+          </div>
+          <div class="stat">
+            <span class="stat-value" id="stat-waves">0</span>
+            <span class="stat-label">Waves</span>
+          </div>
+          <div class="stat">
+            <span class="stat-value" id="stat-kills">0</span>
+            <span class="stat-label">Kills</span>
+          </div>
+          <div class="stat">
+            <span class="stat-value" id="stat-best">0</span>
+            <span class="stat-label">Best Wave</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="lobby-actions">
+        <button id="join-game-btn" class="btn-primary large">
+          <span class="btn-icon">🎮</span>
+          Join Battle
+        </button>
+        <button id="perks-btn" class="btn-secondary">
+          <span class="btn-icon">✨</span>
+          Upgrade Perks
+        </button>
+        <button id="towers-btn" class="btn-secondary">
+          <span class="btn-icon">🗼</span>
+          View Towers
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Perks Modal -->
+  <div id="perks-modal" class="modal">
+    <div class="modal-content perks-content">
+      <div class="modal-header">
+        <h2>⚡ Upgrade Your Powers</h2>
+        <button class="close-btn" onclick="closeModal('perks-modal')">&times;</button>
+      </div>
+      <div class="perk-points-header">
+        Available Points: <span id="modal-perk-points">0</span>
+      </div>
+      <div id="perks-grid" class="perks-grid"></div>
+    </div>
+  </div>
+
+  <!-- Towers Modal -->
+  <div id="towers-modal" class="modal">
+    <div class="modal-content towers-content">
+      <div class="modal-header">
+        <h2>🗼 Tower Arsenal</h2>
+        <button class="close-btn" onclick="closeModal('towers-modal')">&times;</button>
+      </div>
+      <div id="towers-grid" class="towers-grid"></div>
+    </div>
+  </div>
+
+  <!-- Game Screen -->
+  <div id="game-screen" class="screen">
+    <div class="game-header">
+      <div class="castle-health-container">
+        <div class="castle-icon">🏰</div>
+        <div class="health-bar-outer">
+          <div class="health-bar-inner" id="castle-health-bar"></div>
+        </div>
+        <span class="health-text" id="castle-health-text">1000 / 1000</span>
+      </div>
+      
+      <div class="wave-info">
+        <span class="wave-label">Wave</span>
+        <span class="wave-number" id="wave-number">0</span>
+      </div>
+
+      <div class="player-resources">
+        <div class="gold-display">
+          <span class="gold-icon">💰</span>
+          <span id="player-gold">200</span>
+        </div>
+        <div class="score-display">
+          <span class="score-icon">⭐</span>
+          <span id="player-score">0</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="game-main">
+      <canvas id="game-canvas"></canvas>
+      
+      <div class="tower-panel" id="tower-panel">
+        <h3>Build Tower</h3>
+        <div id="tower-buttons" class="tower-buttons"></div>
+        <button id="sell-tower-btn" class="btn-danger hidden">
+          Sell Tower (60%)
+        </button>
+        <button id="cancel-select-btn" class="btn-secondary hidden">
+          Cancel
+        </button>
+      </div>
+    </div>
+
+    <div class="game-footer">
+      <div class="players-list" id="players-list"></div>
+      
+      <div class="game-controls">
+        <button id="start-wave-btn" class="btn-primary">
+          Start Wave
+        </button>
+        <button id="ready-btn" class="btn-success hidden">
+          Ready!
+        </button>
+      </div>
+
+      <div class="chat-container">
+        <div class="chat-messages" id="chat-messages"></div>
+        <div class="chat-input-container">
+          <input type="text" id="chat-input" placeholder="Type message..." maxlength="200">
+          <button id="chat-send-btn">Send</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Game Over Modal -->
+  <div id="gameover-modal" class="modal">
+    <div class="modal-content gameover-content">
+      <div class="gameover-header">
+        <h2>⚔️ The Castle Has Fallen ⚔️</h2>
+        <p class="wave-reached">You Reached Wave <span id="final-wave">0</span></p>
+      </div>
+      <div id="results-list" class="results-list"></div>
+      <div class="gameover-actions">
+        <button id="return-lobby-btn" class="btn-primary">Return to Lobby</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+  <script src="/static/js/castle-defenders.js"></script>
+</body>
+</html>
+
