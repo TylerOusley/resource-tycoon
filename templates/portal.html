@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game Portal</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #0a0a0f;
+            --bg-card: #12121a;
+            --bg-card-hover: #1a1a2e;
+            --accent-cyan: #00f5ff;
+            --accent-purple: #a855f7;
+            --accent-pink: #ff2d92;
+            --accent-gold: #ffd700;
+            --text-primary: #ffffff;
+            --text-secondary: #8892a0;
+            --glow-cyan: 0 0 20px rgba(0, 245, 255, 0.5);
+            --glow-purple: 0 0 20px rgba(168, 85, 247, 0.5);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Rajdhani', sans-serif;
+            background: var(--bg-dark);
+            min-height: 100vh;
+            color: var(--text-primary);
+            overflow-x: hidden;
+        }
+
+        /* Animated background */
+        .bg-animation {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            background: 
+                radial-gradient(ellipse at 20% 20%, rgba(168, 85, 247, 0.15) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 80%, rgba(0, 245, 255, 0.1) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 50%, rgba(255, 45, 146, 0.05) 0%, transparent 70%);
+        }
+
+        .stars {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            background-image: 
+                radial-gradient(2px 2px at 20px 30px, rgba(255,255,255,0.3), transparent),
+                radial-gradient(2px 2px at 40px 70px, rgba(255,255,255,0.2), transparent),
+                radial-gradient(1px 1px at 90px 40px, rgba(255,255,255,0.4), transparent),
+                radial-gradient(2px 2px at 130px 80px, rgba(255,255,255,0.2), transparent),
+                radial-gradient(1px 1px at 160px 120px, rgba(255,255,255,0.3), transparent);
+            background-size: 200px 200px;
+            animation: twinkle 5s ease-in-out infinite;
+        }
+
+        @keyframes twinkle {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* Header */
+        header {
+            text-align: center;
+            padding: 60px 20px 40px;
+        }
+
+        .logo {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 3.5rem;
+            font-weight: 900;
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple), var(--accent-pink));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-shadow: var(--glow-cyan);
+            letter-spacing: 4px;
+            animation: glow-pulse 3s ease-in-out infinite;
+        }
+
+        @keyframes glow-pulse {
+            0%, 100% { filter: drop-shadow(0 0 10px rgba(0, 245, 255, 0.5)); }
+            50% { filter: drop-shadow(0 0 25px rgba(168, 85, 247, 0.7)); }
+        }
+
+        .tagline {
+            font-size: 1.2rem;
+            color: var(--text-secondary);
+            margin-top: 10px;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+        }
+
+        /* Main content */
+        main {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 40px 20px 80px;
+        }
+
+        .section-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.5rem;
+            color: var(--accent-cyan);
+            margin-bottom: 30px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .section-title::before,
+        .section-title::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--accent-cyan), transparent);
+        }
+
+        /* Game grid */
+        .games-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 30px;
+        }
+
+        /* Game card */
+        .game-card {
+            background: var(--bg-card);
+            border-radius: 20px;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            cursor: pointer;
+            position: relative;
+        }
+
+        .game-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            border-radius: 20px;
+            padding: 2px;
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple), var(--accent-pink));
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            opacity: 0;
+            transition: opacity 0.4s;
+        }
+
+        .game-card:hover::before {
+            opacity: 1;
+        }
+
+        .game-card:hover {
+            transform: translateY(-10px) scale(1.02);
+            background: var(--bg-card-hover);
+            box-shadow: 
+                0 20px 40px rgba(0, 0, 0, 0.4),
+                var(--glow-cyan);
+        }
+
+        .game-thumbnail {
+            width: 100%;
+            height: 200px;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .game-thumbnail::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+            transition: left 0.5s;
+        }
+
+        .game-card:hover .game-thumbnail::after {
+            left: 100%;
+        }
+
+        .game-icon {
+            font-size: 5rem;
+            filter: drop-shadow(0 0 20px rgba(0, 245, 255, 0.5));
+        }
+
+        .game-info {
+            padding: 25px;
+        }
+
+        .game-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.4rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+            color: var(--text-primary);
+        }
+
+        .game-description {
+            color: var(--text-secondary);
+            font-size: 1rem;
+            line-height: 1.6;
+            margin-bottom: 20px;
+        }
+
+        .game-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+
+        .tag {
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .tag-idle {
+            background: rgba(0, 245, 255, 0.15);
+            color: var(--accent-cyan);
+            border: 1px solid rgba(0, 245, 255, 0.3);
+        }
+
+        .tag-multiplayer {
+            background: rgba(168, 85, 247, 0.15);
+            color: var(--accent-purple);
+            border: 1px solid rgba(168, 85, 247, 0.3);
+        }
+
+        .tag-strategy {
+            background: rgba(255, 215, 0, 0.15);
+            color: var(--accent-gold);
+            border: 1px solid rgba(255, 215, 0, 0.3);
+        }
+
+        .tag-coming-soon {
+            background: rgba(255, 45, 146, 0.15);
+            color: var(--accent-pink);
+            border: 1px solid rgba(255, 45, 146, 0.3);
+        }
+
+        .play-button {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            width: 100%;
+            padding: 15px;
+            border: none;
+            border-radius: 12px;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple));
+            color: #000;
+        }
+
+        .play-button:hover {
+            transform: scale(1.05);
+            box-shadow: var(--glow-cyan);
+        }
+
+        .play-button:disabled {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--text-secondary);
+            cursor: not-allowed;
+        }
+
+        .play-button:disabled:hover {
+            transform: none;
+            box-shadow: none;
+        }
+
+        /* Coming soon overlay */
+        .coming-soon-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(10, 10, 15, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 20px;
+            backdrop-filter: blur(2px);
+        }
+
+        .coming-soon-text {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.5rem;
+            color: var(--accent-pink);
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* Player count badge */
+        .player-count {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 8px 15px;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.85rem;
+            color: #4ade80;
+            border: 1px solid rgba(74, 222, 128, 0.3);
+        }
+
+        .player-count .dot {
+            width: 8px;
+            height: 8px;
+            background: #4ade80;
+            border-radius: 50%;
+            animation: blink 1.5s ease-in-out infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        /* Footer */
+        footer {
+            text-align: center;
+            padding: 30px;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        footer a {
+            color: var(--accent-cyan);
+            text-decoration: none;
+        }
+
+        footer a:hover {
+            text-decoration: underline;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .logo {
+                font-size: 2rem;
+            }
+
+            .games-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .game-thumbnail {
+                height: 150px;
+            }
+
+            .game-icon {
+                font-size: 3.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-animation"></div>
+    <div class="stars"></div>
+
+    <header>
+        <h1 class="logo">GAME PORTAL</h1>
+        <p class="tagline">Choose Your Adventure</p>
+    </header>
+
+    <main>
+        <h2 class="section-title">Available Games</h2>
+        
+        <div class="games-grid">
+            <!-- Resource Tycoon -->
+            <div class="game-card" onclick="window.location.href='/resource-tycoon'">
+                <div class="game-thumbnail">
+                    <span class="player-count">
+                        <span class="dot"></span>
+                        <span id="player-count">0</span> Online
+                    </span>
+                    <span class="game-icon">🏭</span>
+                </div>
+                <div class="game-info">
+                    <h3 class="game-title">Resource Tycoon</h3>
+                    <p class="game-description">
+                        Build your industrial empire! Gather resources, construct buildings, 
+                        craft materials, and trade with other players in this multiplayer idle tycoon game.
+                    </p>
+                    <div class="game-tags">
+                        <span class="tag tag-idle">Idle</span>
+                        <span class="tag tag-multiplayer">Multiplayer</span>
+                        <span class="tag tag-strategy">Strategy</span>
+                    </div>
+                    <button class="play-button">
+                        ▶ Play Now
+                    </button>
+                </div>
+            </div>
+
+            <!-- Placeholder Game 2 -->
+            <div class="game-card" style="pointer-events: none;">
+                <div class="game-thumbnail">
+                    <span class="game-icon">⚔️</span>
+                </div>
+                <div class="game-info">
+                    <h3 class="game-title">Battle Arena</h3>
+                    <p class="game-description">
+                        Enter the arena and fight your way to glory! Strategic combat, 
+                        character progression, and PvP battles await.
+                    </p>
+                    <div class="game-tags">
+                        <span class="tag tag-coming-soon">Coming Soon</span>
+                    </div>
+                    <button class="play-button" disabled>
+                        🔒 Coming Soon
+                    </button>
+                </div>
+                <div class="coming-soon-overlay">
+                    <span class="coming-soon-text">Coming Soon</span>
+                </div>
+            </div>
+
+            <!-- Placeholder Game 3 -->
+            <div class="game-card" style="pointer-events: none;">
+                <div class="game-thumbnail">
+                    <span class="game-icon">🚀</span>
+                </div>
+                <div class="game-info">
+                    <h3 class="game-title">Space Explorers</h3>
+                    <p class="game-description">
+                        Explore the cosmos, discover new planets, build space stations, 
+                        and establish trade routes across the galaxy.
+                    </p>
+                    <div class="game-tags">
+                        <span class="tag tag-coming-soon">Coming Soon</span>
+                    </div>
+                    <button class="play-button" disabled>
+                        🔒 Coming Soon
+                    </button>
+                </div>
+                <div class="coming-soon-overlay">
+                    <span class="coming-soon-text">Coming Soon</span>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <p>© 2024 Game Portal • Built with ❤️</p>
+    </footer>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+    <script>
+        // Connect to get player count
+        const socket = io();
+        
+        socket.on('connect', () => {
+            socket.emit('portal:get_stats');
+        });
+        
+        socket.on('portal:stats', (data) => {
+            document.getElementById('player-count').textContent = data.online_players || 0;
+        });
+        
+        // Update player count periodically
+        setInterval(() => {
+            socket.emit('portal:get_stats');
+        }, 5000);
+    </script>
+</body>
+</html>
+
