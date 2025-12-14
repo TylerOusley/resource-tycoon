@@ -6,8 +6,8 @@
   <title>Castle Defenders Online</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/css/castle-defenders.css">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/castle-defenders.css') }}">
 </head>
 <body>
   <!-- Back to Portal Button -->
@@ -212,7 +212,7 @@
   </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
-  <script src="/static/js/castle-defenders.js"></script>
+  <script src="{{ url_for('static', filename='js/castle-defenders.js') }}"></script>
 </body>
 </html>
 
