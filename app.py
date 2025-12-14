@@ -292,14 +292,18 @@ def handle_gather(data):
 
 @socketio.on('building:buy')
 def handle_buy_building(data):
-    """Player buys a building"""
+    """Player buys a building (supports bulk purchase)"""
     from flask import request
     building_id = data.get('buildingId')
+    amount = int(data.get('amount', 1))
     
-    result = game_state.buy_building(request.sid, building_id)
+    # Limit to reasonable amount to prevent abuse
+    amount = max(1, min(amount, 10000))
+    
+    result = game_state.buy_building(request.sid, building_id, amount)
     
     if result['success']:
-        events.update_challenge_progress(request.sid, 'build', 1)
+        events.update_challenge_progress(request.sid, 'build', result.get('bought', 1))
         
         emit('building:purchased', {
             'buildings': result['player_buildings'],
@@ -766,8 +770,13 @@ def game_tick():
             updates = game_state.process_tick()
             
             for player_id, update in updates.items():
-                socket_id = game_state.get_player_socket(player_id)
+                socket_id = update.get('socket_id') or game_state.get_player_socket(player_id)
                 if socket_id:
+                    # Track passive income for challenges
+                    passive_income = update.get('passive_income_earned', 0)
+                    if passive_income >= 1:
+                        events.update_challenge_progress(socket_id, 'earn', int(passive_income))
+                    
                     socketio.emit('tick:update', update, room=socket_id)
             
             # Update leaderboard every second for real-time feel
