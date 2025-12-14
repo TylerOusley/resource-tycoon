@@ -159,7 +159,10 @@ function handleCanvasClick(e) {
   const x = (e.clientX - rect.left) * scaleX;
   const y = (e.clientY - rect.top) * scaleY;
   
-  if (!gameState) return;
+  if (!gameState) {
+    console.log('No game state');
+    return;
+  }
   
   // Check if clicked on a plot
   for (const plot of gameState.plots) {
@@ -168,6 +171,8 @@ function handleCanvasClick(e) {
     const dist = Math.sqrt(dx * dx + dy * dy);
     
     if (dist < 30) {
+      console.log('Clicked plot:', plot.id, 'tower:', plot.tower, 'selectedTower:', selectedTower);
+      
       if (plot.tower) {
         // Select existing tower
         const tower = gameState.towers.find(t => t.id === plot.tower);
@@ -175,9 +180,13 @@ function handleCanvasClick(e) {
           selectedPlot = plot;
           selectedTower = null;
           updateTowerPanel();
+          addChatMessage('System', `📍 Selected your ${towerTypes[tower.type]?.name || 'tower'}`);
+        } else if (tower) {
+          addChatMessage('System', `ℹ️ This tower belongs to ${tower.ownerName}`);
         }
       } else if (selectedTower) {
         // Place tower
+        console.log('Placing tower:', selectedTower, 'on plot:', plot.id);
         socket.emit('cd:placeTower', {
           plotId: plot.id,
           towerType: selectedTower
@@ -185,8 +194,10 @@ function handleCanvasClick(e) {
         selectedTower = null;
         updateTowerPanel();
       } else {
+        // Empty plot, no tower selected
         selectedPlot = plot;
         updateTowerPanel();
+        addChatMessage('System', '💡 Select a tower from the panel, then click here to build!');
       }
       return;
     }
@@ -302,11 +313,21 @@ function renderTowerButtons() {
       </div>
     `;
     
-    if (isUnlocked && canAfford) {
-      btn.addEventListener('click', () => {
+    // Add click handler for all unlocked towers (even if too expensive, for feedback)
+    if (isUnlocked) {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        if (!canAfford) {
+          addChatMessage('System', `⚠️ Not enough gold for ${tower.name}!`);
+          return;
+        }
+        
         selectedTower = type;
         selectedPlot = null;
         updateTowerPanel();
+        addChatMessage('System', `🗼 Selected ${tower.name} - Click an empty plot to build!`);
       });
     }
     
@@ -915,6 +936,7 @@ socket.on('cd:gameJoined', (data) => {
   playerId = data.playerId;
   gameState = data.state;
   
+  // Setup canvas
   canvas.width = CANVAS_WIDTH;
   canvas.height = CANVAS_HEIGHT;
   
@@ -924,6 +946,7 @@ socket.on('cd:gameJoined', (data) => {
   render();
   
   addChatMessage('System', 'Welcome to the battle!');
+  addChatMessage('System', '💡 Click a tower button, then click an empty plot to build!');
 });
 
 socket.on('cd:playerJoined', (data) => {
@@ -959,6 +982,12 @@ socket.on('cd:towerSold', (data) => {
 
 socket.on('cd:actionFailed', (data) => {
   addChatMessage('System', `⚠️ ${data.error}`);
+  console.log('Action failed:', data.error);
+});
+
+socket.on('cd:error', (data) => {
+  addChatMessage('System', `❌ ${data.message}`);
+  console.log('Error:', data.message);
 });
 
 socket.on('cd:perkBought', (data) => {
