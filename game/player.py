@@ -253,20 +253,47 @@ class Player:
         
         return {"can": True}
     
-    def buy_building(self, building_id: str) -> Dict[str, Any]:
-        """Purchase a building"""
-        check = self.can_buy_building(building_id)
-        if not check["can"]:
-            return {"success": False, "message": check["reason"]}
+    def buy_building(self, building_id: str, amount: int = 1) -> Dict[str, Any]:
+        """Purchase buildings (supports bulk purchase)"""
+        if building_id not in BUILDINGS:
+            return {"success": False, "message": "Unknown building"}
         
         building = BUILDINGS[building_id]
         
-        # Deduct costs
-        self.money -= building["cost"]
-        for res_id, amount in building.get("cost_resources", {}).items():
-            self.resources[res_id] -= amount
+        # Check level requirement
+        if self.level < building.get("unlock_level", 1):
+            return {"success": False, "message": f"Requires level {building['unlock_level']}"}
         
-        # Add building
+        # Calculate how many we can actually afford
+        amount = max(1, min(amount, 10000))  # Safety limit
+        
+        cost_per_building = building["cost"]
+        resource_costs = building.get("cost_resources", {})
+        
+        # Calculate max affordable by money
+        max_by_money = int(self.money // cost_per_building) if cost_per_building > 0 else amount
+        
+        # Calculate max affordable by resources
+        max_by_resources = amount
+        for res_id, res_amount in resource_costs.items():
+            owned = self.resources.get(res_id, 0)
+            max_for_this = int(owned // res_amount) if res_amount > 0 else amount
+            max_by_resources = min(max_by_resources, max_for_this)
+        
+        # Actual amount we can buy
+        actual_amount = min(amount, max_by_money, max_by_resources)
+        
+        if actual_amount <= 0:
+            return {"success": False, "message": "Cannot afford any buildings"}
+        
+        # Deduct costs in bulk
+        total_money_cost = cost_per_building * actual_amount
+        self.money -= total_money_cost
+        
+        for res_id, res_amount in resource_costs.items():
+            self.resources[res_id] -= res_amount * actual_amount
+        
+        # Add buildings
         if building_id not in self.buildings:
             self.buildings[building_id] = {
                 "level": 1,
@@ -274,17 +301,18 @@ class Player:
                 "last_produced": time.time()
             }
         
-        self.buildings[building_id]["count"] += 1
+        self.buildings[building_id]["count"] += actual_amount
         
         # Stats
-        self.stats["buildings_purchased"] += 1
-        self.add_xp(building.get("tier", 1) * 10)
+        self.stats["buildings_purchased"] += actual_amount
+        self.add_xp(building.get("tier", 1) * 10 * actual_amount)
         
         self.last_active = time.time()
         
         return {
             "success": True,
             "building_id": building_id,
+            "bought": actual_amount,
             "player_buildings": self.get_buildings_state(),
             "player_resources": self.resources.copy(),
             "money": self.money
