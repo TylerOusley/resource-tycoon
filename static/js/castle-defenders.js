@@ -260,11 +260,12 @@ function updateTowerPanel() {
     cancelBtn.classList.add('hidden');
   }
   
-  // Update tower buttons to show selected state
+  // Update tower buttons to show selected state (don't recreate, just update class)
   document.querySelectorAll('.tower-btn').forEach(btn => {
-    btn.classList.remove('selected');
     if (btn.dataset.type === selectedTower) {
       btn.classList.add('selected');
+    } else {
+      btn.classList.remove('selected');
     }
   });
 }
@@ -428,6 +429,9 @@ function updateProfileUI() {
   document.getElementById('stat-best').textContent = playerProfile.highestWave;
 }
 
+// Track last gold to avoid unnecessary re-renders
+let lastPlayerGold = 0;
+
 function updateGameUI() {
   if (!gameState) return;
   
@@ -445,6 +449,12 @@ function updateGameUI() {
   if (player) {
     document.getElementById('player-gold').textContent = Math.floor(player.gold);
     document.getElementById('player-score').textContent = player.score;
+    
+    // Only re-render tower buttons if gold changed significantly
+    if (Math.floor(player.gold) !== Math.floor(lastPlayerGold)) {
+      lastPlayerGold = player.gold;
+      renderTowerButtons();
+    }
   }
   
   // Players list
@@ -470,39 +480,156 @@ function updateGameUI() {
     waveBtn.disabled = false;
     waveBtn.textContent = `Start Wave ${gameState.wave + 1}`;
   }
+}
+
+// Pre-generate background elements for performance
+let backgroundGenerated = false;
+let backgroundCanvas = null;
+
+function generateBackground() {
+  backgroundCanvas = document.createElement('canvas');
+  backgroundCanvas.width = CANVAS_WIDTH;
+  backgroundCanvas.height = CANVAS_HEIGHT;
+  const bgCtx = backgroundCanvas.getContext('2d');
   
-  // Render tower buttons with updated gold
-  renderTowerButtons();
+  // Base grass gradient
+  const grassGrad = bgCtx.createRadialGradient(
+    CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, 0,
+    CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, CANVAS_WIDTH
+  );
+  grassGrad.addColorStop(0, '#2d5a27');
+  grassGrad.addColorStop(0.5, '#1e4a1a');
+  grassGrad.addColorStop(1, '#153515');
+  bgCtx.fillStyle = grassGrad;
+  bgCtx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+  
+  // Add grass texture patches
+  for (let i = 0; i < 200; i++) {
+    const x = Math.random() * CANVAS_WIDTH;
+    const y = Math.random() * CANVAS_HEIGHT;
+    const size = 15 + Math.random() * 30;
+    const alpha = 0.1 + Math.random() * 0.15;
+    
+    bgCtx.fillStyle = Math.random() > 0.5 
+      ? `rgba(45, 100, 39, ${alpha})` 
+      : `rgba(20, 60, 18, ${alpha})`;
+    bgCtx.beginPath();
+    bgCtx.ellipse(x, y, size, size * 0.6, Math.random() * Math.PI, 0, Math.PI * 2);
+    bgCtx.fill();
+  }
+  
+  // Add small grass tufts
+  bgCtx.strokeStyle = '#3a6b35';
+  bgCtx.lineWidth = 2;
+  for (let i = 0; i < 150; i++) {
+    const x = Math.random() * CANVAS_WIDTH;
+    const y = Math.random() * CANVAS_HEIGHT;
+    const height = 5 + Math.random() * 10;
+    
+    bgCtx.beginPath();
+    bgCtx.moveTo(x, y);
+    bgCtx.lineTo(x - 3, y - height);
+    bgCtx.moveTo(x, y);
+    bgCtx.lineTo(x + 2, y - height * 0.8);
+    bgCtx.moveTo(x, y);
+    bgCtx.lineTo(x + 4, y - height * 0.6);
+    bgCtx.stroke();
+  }
+  
+  // Add some flowers/plants
+  const flowerColors = ['#ff6b6b', '#ffd93d', '#6bcb77', '#4d96ff', '#ff8fab'];
+  for (let i = 0; i < 40; i++) {
+    const x = Math.random() * CANVAS_WIDTH;
+    const y = Math.random() * CANVAS_HEIGHT;
+    const color = flowerColors[Math.floor(Math.random() * flowerColors.length)];
+    
+    bgCtx.fillStyle = color;
+    bgCtx.beginPath();
+    bgCtx.arc(x, y, 2 + Math.random() * 3, 0, Math.PI * 2);
+    bgCtx.fill();
+  }
+  
+  // Add rocks
+  for (let i = 0; i < 20; i++) {
+    const x = Math.random() * CANVAS_WIDTH;
+    const y = Math.random() * CANVAS_HEIGHT;
+    const size = 5 + Math.random() * 12;
+    
+    bgCtx.fillStyle = '#4a4a4a';
+    bgCtx.beginPath();
+    bgCtx.ellipse(x, y, size, size * 0.7, 0, 0, Math.PI * 2);
+    bgCtx.fill();
+    
+    bgCtx.fillStyle = '#5a5a5a';
+    bgCtx.beginPath();
+    bgCtx.ellipse(x - size * 0.2, y - size * 0.2, size * 0.5, size * 0.3, 0, 0, Math.PI * 2);
+    bgCtx.fill();
+  }
+  
+  // Add trees around the edges
+  const treePositions = [
+    {x: 30, y: 50}, {x: 80, y: 520}, {x: 850, y: 80}, {x: 870, y: 550},
+    {x: 50, y: 250}, {x: 870, y: 200}, {x: 400, y: 30}, {x: 500, y: 570}
+  ];
+  
+  for (const pos of treePositions) {
+    // Tree shadow
+    bgCtx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+    bgCtx.beginPath();
+    bgCtx.ellipse(pos.x + 5, pos.y + 35, 20, 10, 0, 0, Math.PI * 2);
+    bgCtx.fill();
+    
+    // Tree trunk
+    bgCtx.fillStyle = '#5d4037';
+    bgCtx.fillRect(pos.x - 5, pos.y, 10, 30);
+    
+    // Tree foliage (layered circles)
+    bgCtx.fillStyle = '#2e7d32';
+    bgCtx.beginPath();
+    bgCtx.arc(pos.x, pos.y - 15, 25, 0, Math.PI * 2);
+    bgCtx.fill();
+    
+    bgCtx.fillStyle = '#388e3c';
+    bgCtx.beginPath();
+    bgCtx.arc(pos.x - 10, pos.y - 5, 18, 0, Math.PI * 2);
+    bgCtx.fill();
+    
+    bgCtx.beginPath();
+    bgCtx.arc(pos.x + 12, pos.y - 8, 16, 0, Math.PI * 2);
+    bgCtx.fill();
+    
+    bgCtx.fillStyle = '#43a047';
+    bgCtx.beginPath();
+    bgCtx.arc(pos.x, pos.y - 25, 15, 0, Math.PI * 2);
+    bgCtx.fill();
+  }
+  
+  backgroundGenerated = true;
 }
 
 function render() {
   if (!gameState || !ctx) return;
   
-  // Clear canvas
-  ctx.fillStyle = '#1a1a1a';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  
-  // Draw grass background
-  ctx.fillStyle = '#1e3d1a';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  
-  // Add some texture
-  ctx.fillStyle = '#162e13';
-  for (let i = 0; i < 100; i++) {
-    const x = (i * 73) % canvas.width;
-    const y = (i * 47) % canvas.height;
-    ctx.beginPath();
-    ctx.arc(x, y, 3 + Math.random() * 5, 0, Math.PI * 2);
-    ctx.fill();
+  // Generate background once
+  if (!backgroundGenerated) {
+    generateBackground();
   }
   
-  // Draw path
+  // Draw pre-rendered background
+  if (backgroundCanvas) {
+    ctx.drawImage(backgroundCanvas, 0, 0);
+  } else {
+    ctx.fillStyle = '#1e4a1a';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
+  
+  // Draw path with better styling
   if (gameState.path && gameState.path.length > 1) {
-    ctx.strokeStyle = '#4a3728';
-    ctx.lineWidth = 40;
+    // Outer border (dark)
+    ctx.strokeStyle = '#2a1a0a';
+    ctx.lineWidth = 48;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
-    
     ctx.beginPath();
     ctx.moveTo(gameState.path[0].x, gameState.path[0].y);
     for (let i = 1; i < gameState.path.length; i++) {
@@ -510,9 +637,9 @@ function render() {
     }
     ctx.stroke();
     
-    // Path border
-    ctx.strokeStyle = '#3a2a1a';
-    ctx.lineWidth = 44;
+    // Main path (dirt)
+    ctx.strokeStyle = '#6b5344';
+    ctx.lineWidth = 42;
     ctx.beginPath();
     ctx.moveTo(gameState.path[0].x, gameState.path[0].y);
     for (let i = 1; i < gameState.path.length; i++) {
@@ -520,9 +647,19 @@ function render() {
     }
     ctx.stroke();
     
-    // Inner path
-    ctx.strokeStyle = '#5a4738';
-    ctx.lineWidth = 36;
+    // Inner highlight
+    ctx.strokeStyle = '#8b7355';
+    ctx.lineWidth = 32;
+    ctx.beginPath();
+    ctx.moveTo(gameState.path[0].x, gameState.path[0].y);
+    for (let i = 1; i < gameState.path.length; i++) {
+      ctx.lineTo(gameState.path[i].x, gameState.path[i].y);
+    }
+    ctx.stroke();
+    
+    // Center line (lighter)
+    ctx.strokeStyle = '#9a8465';
+    ctx.lineWidth = 20;
     ctx.beginPath();
     ctx.moveTo(gameState.path[0].x, gameState.path[0].y);
     for (let i = 1; i < gameState.path.length; i++) {
@@ -531,48 +668,146 @@ function render() {
     ctx.stroke();
   }
   
-  // Draw castle
+  // Draw castle (improved)
   const castleX = canvas.width - 50;
   const castleY = 300;
   
+  // Castle platform
+  ctx.fillStyle = '#4a4a4a';
+  ctx.beginPath();
+  ctx.ellipse(castleX, castleY + 50, 70, 20, 0, 0, Math.PI * 2);
+  ctx.fill();
+  
   // Castle shadow
-  ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
   ctx.beginPath();
-  ctx.ellipse(castleX + 5, castleY + 45, 50, 15, 0, 0, Math.PI * 2);
+  ctx.ellipse(castleX + 8, castleY + 55, 60, 15, 0, 0, Math.PI * 2);
   ctx.fill();
   
-  // Castle body
+  // Castle wall base
+  ctx.fillStyle = '#6a6a7a';
+  ctx.fillRect(castleX - 45, castleY - 20, 90, 65);
+  
+  // Castle wall gradient
+  const wallGrad = ctx.createLinearGradient(castleX - 45, 0, castleX + 45, 0);
+  wallGrad.addColorStop(0, '#5a5a6a');
+  wallGrad.addColorStop(0.5, '#7a7a8a');
+  wallGrad.addColorStop(1, '#5a5a6a');
+  ctx.fillStyle = wallGrad;
+  ctx.fillRect(castleX - 42, castleY - 17, 84, 59);
+  
+  // Battlements
   ctx.fillStyle = '#5a5a6a';
-  ctx.fillRect(castleX - 40, castleY - 30, 80, 70);
+  for (let i = 0; i < 5; i++) {
+    ctx.fillRect(castleX - 40 + i * 20, castleY - 30, 12, 15);
+  }
   
-  // Castle towers
+  // Left tower
   ctx.fillStyle = '#4a4a5a';
-  ctx.fillRect(castleX - 50, castleY - 50, 25, 90);
-  ctx.fillRect(castleX + 25, castleY - 50, 25, 90);
+  ctx.fillRect(castleX - 55, castleY - 55, 30, 100);
+  ctx.fillStyle = '#5a5a6a';
+  ctx.fillRect(castleX - 52, castleY - 52, 24, 94);
   
-  // Tower tops
-  ctx.fillStyle = '#8b2222';
+  // Right tower
+  ctx.fillStyle = '#4a4a5a';
+  ctx.fillRect(castleX + 25, castleY - 55, 30, 100);
+  ctx.fillStyle = '#5a5a6a';
+  ctx.fillRect(castleX + 28, castleY - 52, 24, 94);
+  
+  // Tower roofs
+  ctx.fillStyle = '#b91c1c';
   ctx.beginPath();
-  ctx.moveTo(castleX - 50, castleY - 50);
-  ctx.lineTo(castleX - 37, castleY - 70);
-  ctx.lineTo(castleX - 25, castleY - 50);
+  ctx.moveTo(castleX - 60, castleY - 55);
+  ctx.lineTo(castleX - 40, castleY - 85);
+  ctx.lineTo(castleX - 20, castleY - 55);
   ctx.fill();
   
   ctx.beginPath();
-  ctx.moveTo(castleX + 25, castleY - 50);
-  ctx.lineTo(castleX + 37, castleY - 70);
-  ctx.lineTo(castleX + 50, castleY - 50);
+  ctx.moveTo(castleX + 20, castleY - 55);
+  ctx.lineTo(castleX + 40, castleY - 85);
+  ctx.lineTo(castleX + 60, castleY - 55);
   ctx.fill();
+  
+  // Roof highlights
+  ctx.fillStyle = '#dc2626';
+  ctx.beginPath();
+  ctx.moveTo(castleX - 55, castleY - 55);
+  ctx.lineTo(castleX - 40, castleY - 80);
+  ctx.lineTo(castleX - 40, castleY - 55);
+  ctx.fill();
+  
+  ctx.beginPath();
+  ctx.moveTo(castleX + 25, castleY - 55);
+  ctx.lineTo(castleX + 40, castleY - 80);
+  ctx.lineTo(castleX + 40, castleY - 55);
+  ctx.fill();
+  
+  // Flags
+  ctx.fillStyle = '#fbbf24';
+  ctx.beginPath();
+  ctx.moveTo(castleX - 40, castleY - 85);
+  ctx.lineTo(castleX - 40, castleY - 100);
+  ctx.lineTo(castleX - 25, castleY - 92);
+  ctx.lineTo(castleX - 40, castleY - 85);
+  ctx.fill();
+  
+  ctx.beginPath();
+  ctx.moveTo(castleX + 40, castleY - 85);
+  ctx.lineTo(castleX + 40, castleY - 100);
+  ctx.lineTo(castleX + 55, castleY - 92);
+  ctx.lineTo(castleX + 40, castleY - 85);
+  ctx.fill();
+  
+  // Flag poles
+  ctx.strokeStyle = '#3a3a3a';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(castleX - 40, castleY - 85);
+  ctx.lineTo(castleX - 40, castleY - 102);
+  ctx.moveTo(castleX + 40, castleY - 85);
+  ctx.lineTo(castleX + 40, castleY - 102);
+  ctx.stroke();
   
   // Castle gate
-  ctx.fillStyle = '#3a2a1a';
-  ctx.fillRect(castleX - 15, castleY + 5, 30, 35);
-  ctx.fillStyle = '#2a1a0a';
-  ctx.fillRect(castleX - 12, castleY + 8, 24, 29);
+  ctx.fillStyle = '#3d2817';
+  ctx.beginPath();
+  ctx.moveTo(castleX - 18, castleY + 45);
+  ctx.lineTo(castleX - 18, castleY + 5);
+  ctx.quadraticCurveTo(castleX, castleY - 10, castleX + 18, castleY + 5);
+  ctx.lineTo(castleX + 18, castleY + 45);
+  ctx.fill();
+  
+  // Gate details
+  ctx.strokeStyle = '#2a1a0a';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(castleX, castleY + 45);
+  ctx.lineTo(castleX, castleY + 5);
+  ctx.stroke();
+  
+  ctx.beginPath();
+  ctx.moveTo(castleX - 15, castleY + 20);
+  ctx.lineTo(castleX + 15, castleY + 20);
+  ctx.stroke();
+  
+  // Tower windows
+  ctx.fillStyle = '#1a1a2a';
+  ctx.fillRect(castleX - 47, castleY - 35, 8, 12);
+  ctx.fillRect(castleX - 47, castleY - 10, 8, 12);
+  ctx.fillRect(castleX + 39, castleY - 35, 8, 12);
+  ctx.fillRect(castleX + 39, castleY - 10, 8, 12);
+  
+  // Window glow
+  ctx.fillStyle = 'rgba(255, 200, 100, 0.3)';
+  ctx.fillRect(castleX - 46, castleY - 34, 6, 10);
+  ctx.fillRect(castleX - 46, castleY - 9, 6, 10);
+  ctx.fillRect(castleX + 40, castleY - 34, 6, 10);
+  ctx.fillRect(castleX + 40, castleY - 9, 6, 10);
   
   // Draw plots
   for (const plot of gameState.plots) {
     const isSelected = selectedPlot && selectedPlot.id === plot.id;
+    const canBuild = selectedTower && !plot.tower;
     
     if (plot.tower) {
       // Draw tower
@@ -581,20 +816,54 @@ function render() {
         drawTower(tower, plot, isSelected);
       }
     } else {
-      // Draw empty plot
-      ctx.strokeStyle = isSelected ? '#d4a84b' : '#3a5a3a';
-      ctx.lineWidth = isSelected ? 3 : 2;
-      ctx.setLineDash([5, 5]);
+      // Draw empty plot - stone platform
+      ctx.fillStyle = '#4a4a4a';
       ctx.beginPath();
-      ctx.arc(plot.x, plot.y, 25, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.setLineDash([]);
+      ctx.ellipse(plot.x, plot.y + 5, 28, 14, 0, 0, Math.PI * 2);
+      ctx.fill();
       
-      if (isSelected || (selectedTower && !plot.tower)) {
-        ctx.fillStyle = 'rgba(212, 168, 75, 0.2)';
+      ctx.fillStyle = '#5a5a5a';
+      ctx.beginPath();
+      ctx.ellipse(plot.x, plot.y, 26, 13, 0, 0, Math.PI * 2);
+      ctx.fill();
+      
+      ctx.fillStyle = '#6a6a6a';
+      ctx.beginPath();
+      ctx.ellipse(plot.x, plot.y - 3, 22, 11, 0, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Highlight when can build or selected
+      if (isSelected) {
+        ctx.strokeStyle = '#fbbf24';
+        ctx.lineWidth = 3;
+        ctx.setLineDash([]);
         ctx.beginPath();
-        ctx.arc(plot.x, plot.y, 25, 0, Math.PI * 2);
+        ctx.arc(plot.x, plot.y, 30, 0, Math.PI * 2);
+        ctx.stroke();
+        
+        ctx.fillStyle = 'rgba(251, 191, 36, 0.25)';
+        ctx.beginPath();
+        ctx.arc(plot.x, plot.y, 28, 0, Math.PI * 2);
         ctx.fill();
+      } else if (canBuild) {
+        // Glow effect when tower is selected
+        ctx.strokeStyle = 'rgba(16, 185, 129, 0.8)';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 5]);
+        ctx.beginPath();
+        ctx.arc(plot.x, plot.y, 30, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        
+        ctx.fillStyle = 'rgba(16, 185, 129, 0.15)';
+        ctx.beginPath();
+        ctx.arc(plot.x, plot.y, 28, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Plus icon
+        ctx.fillStyle = 'rgba(16, 185, 129, 0.8)';
+        ctx.fillRect(plot.x - 8, plot.y - 2, 16, 4);
+        ctx.fillRect(plot.x - 2, plot.y - 8, 4, 16);
       }
     }
   }
@@ -940,13 +1209,22 @@ socket.on('cd:gameJoined', (data) => {
   canvas.width = CANVAS_WIDTH;
   canvas.height = CANVAS_HEIGHT;
   
+  // Reset background so it regenerates
+  backgroundGenerated = false;
+  backgroundCanvas = null;
+  
+  // Reset tracked gold
+  lastPlayerGold = 0;
+  
   showScreen('game');
+  
+  // Force render tower buttons
   renderTowerButtons();
   updateGameUI();
   render();
   
-  addChatMessage('System', 'Welcome to the battle!');
-  addChatMessage('System', '💡 Click a tower button, then click an empty plot to build!');
+  addChatMessage('System', '🏰 Welcome to the battle!');
+  addChatMessage('System', '💡 Click a tower from the right panel, then click an empty plot to build!');
 });
 
 socket.on('cd:playerJoined', (data) => {
