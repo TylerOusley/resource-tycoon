@@ -30,6 +30,10 @@ class ResourceTycoon {
         this.tradePartner = null;
         this.pendingTrade = null;
         
+        // Event state
+        this.eventTimerId = null;
+        this.eventEndsAt = null;
+        
         // Tutorial state
         this.tutorialStep = 0;
         this.totalTutorialSteps = 7;
@@ -1008,11 +1012,8 @@ class ResourceTycoon {
             return;
         }
         
-        // Buy buildings one at a time on the server (for now)
-        // Could be optimized to send bulk request
-        for (let i = 0; i < amount; i++) {
-            this.socket.emit('building:buy', { buildingId });
-        }
+        // Send single bulk purchase request
+        this.socket.emit('building:buy', { buildingId, amount: amount });
     }
     
     upgradeBuilding(buildingId) {
@@ -1422,6 +1423,7 @@ class ResourceTycoon {
                         <button class="btn btn-tiny ${this.buyAmount === 1 ? 'active' : ''}" onclick="game.setBuyAmount(1)">+1</button>
                         <button class="btn btn-tiny ${this.buyAmount === 5 ? 'active' : ''}" onclick="game.setBuyAmount(5)">+5</button>
                         <button class="btn btn-tiny ${this.buyAmount === 10 ? 'active' : ''}" onclick="game.setBuyAmount(10)">+10</button>
+                        <button class="btn btn-tiny ${this.buyAmount === 100 ? 'active' : ''}" onclick="game.setBuyAmount(100)">+100</button>
                         <button class="btn btn-tiny ${this.buyAmount === 'max' ? 'active' : ''}" onclick="game.setBuyAmount('max')">MAX</button>
                     </div>
                     <div class="building-actions">
@@ -1934,11 +1936,21 @@ class ResourceTycoon {
         
         banner.classList.remove('hidden');
         
+        // Cancel any existing event timer to prevent flickering
+        if (this.eventTimerId) {
+            clearTimeout(this.eventTimerId);
+            this.eventTimerId = null;
+        }
+        
+        // Store event end time
+        this.eventEndsAt = event.ends_at || (event.started_at + event.duration);
+        
         // Update timer
         const updateTimer = () => {
-            const remaining = event.time_remaining || ((event.ends_at || event.started_at + event.duration) - Date.now() / 1000);
+            const remaining = this.eventEndsAt - Date.now() / 1000;
             if (remaining <= 0) {
                 banner.classList.add('hidden');
+                this.eventTimerId = null;
                 return;
             }
             
@@ -1946,7 +1958,7 @@ class ResourceTycoon {
             const secs = Math.floor(remaining % 60);
             document.getElementById('event-timer').textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
             
-            setTimeout(updateTimer, 1000);
+            this.eventTimerId = setTimeout(updateTimer, 1000);
         };
         
         updateTimer();
