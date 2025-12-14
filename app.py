@@ -628,13 +628,27 @@ def handle_cd_place_tower(data):
     
     game_id = cd_socket_to_game.get(request.sid)
     if not game_id:
+        emit('cd:actionFailed', {'error': 'Not in a game'})
         return
     
     game = cd_game_manager.get_game(game_id)
     if not game:
+        emit('cd:actionFailed', {'error': 'Game not found'})
         return
     
-    result = game.place_tower(request.sid, data.get('plotId'), data.get('towerType'))
+    # Ensure plot_id is an integer
+    try:
+        plot_id = int(data.get('plotId', -1))
+    except (TypeError, ValueError):
+        emit('cd:actionFailed', {'error': 'Invalid plot ID'})
+        return
+    
+    tower_type = data.get('towerType')
+    if not tower_type:
+        emit('cd:actionFailed', {'error': 'No tower type selected'})
+        return
+    
+    result = game.place_tower(request.sid, plot_id, tower_type)
     
     if result['success']:
         for player_id in game.players:
