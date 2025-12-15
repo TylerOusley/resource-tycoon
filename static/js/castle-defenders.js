@@ -606,8 +606,7 @@ function updateGameUI() {
   // Only re-render tower buttons if gold changed significantly
   if (Math.floor(myGold) !== Math.floor(lastPlayerGold)) {
     lastPlayerGold = myGold;
-      renderTowerButtons();
-    }
+    renderTowerButtons();
   }
   
   // Players list
