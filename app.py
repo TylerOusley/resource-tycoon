@@ -871,6 +871,114 @@ def handle_cd_chat(data):
         }, room=player_id)
 
 
+@socketio.on('cd:sendGold')
+def handle_cd_send_gold(data):
+    """Send gold to another player in Castle Defenders"""
+    from flask import request
+    
+    game_id = cd_socket_to_game.get(request.sid)
+    if not game_id:
+        return
+    
+    game = cd_game_manager.get_game(game_id)
+    if not game:
+        return
+    
+    sender = game.players.get(request.sid)
+    if not sender:
+        emit('cd:actionFailed', {'error': 'Player not found'})
+        return
+    
+    target_id = data.get('targetId')
+    amount = int(data.get('amount', 0))
+    
+    # Validate amount
+    if amount <= 0:
+        emit('cd:actionFailed', {'error': 'Invalid amount'})
+        return
+    
+    if sender.gold < amount:
+        emit('cd:actionFailed', {'error': 'Not enough gold'})
+        return
+    
+    # Find target player
+    target = game.players.get(target_id)
+    if not target:
+        emit('cd:actionFailed', {'error': 'Target player not found'})
+        return
+    
+    if target_id == request.sid:
+        emit('cd:actionFailed', {'error': 'Cannot send gold to yourself'})
+        return
+    
+    # Transfer gold
+    sender.gold -= amount
+    target.gold += amount
+    
+    # Notify all players
+    socketio.emit('cd:goldSent', {
+        'senderId': request.sid,
+        'senderName': sender.name,
+        'targetId': target_id,
+        'targetName': target.name,
+        'amount': amount,
+        'senderGold': sender.gold,
+        'targetGold': target.gold
+    }, room=game.id)
+
+
+@socketio.on('cd:voteEndGame')
+def handle_cd_vote_end_game(data):
+    """Vote to end the current game"""
+    from flask import request
+    
+    game_id = cd_socket_to_game.get(request.sid)
+    if not game_id:
+        return
+    
+    game = cd_game_manager.get_game(game_id)
+    if not game or game.state != 'playing':
+        emit('cd:actionFailed', {'error': 'No active game'})
+        return
+    
+    player = game.players.get(request.sid)
+    if not player:
+        return
+    
+    # Initialize vote tracking if needed
+    if not hasattr(game, 'end_votes'):
+        game.end_votes = set()
+    
+    # Add/remove vote
+    if data.get('vote', True):
+        game.end_votes.add(request.sid)
+    else:
+        game.end_votes.discard(request.sid)
+    
+    # Check if all players voted
+    all_voted = len(game.end_votes) >= len(game.players)
+    
+    # Notify all players about vote status
+    socketio.emit('cd:endGameVote', {
+        'voterId': request.sid,
+        'voterName': player.name,
+        'voted': request.sid in game.end_votes,
+        'votes': len(game.end_votes),
+        'required': len(game.players),
+        'allVoted': all_voted
+    }, room=game.id)
+    
+    # End game if all voted
+    if all_voted:
+        game.state = 'ended'
+        results = game.end_game()
+        cd_player_manager.save_players()
+        socketio.emit('cd:gameEnded', {
+            'reason': 'All players voted to end',
+            'results': results
+        }, room=game.id)
+
+
 @socketio.on('disconnect')
 def handle_cd_disconnect():
     """Handle Castle Defenders player disconnect"""
