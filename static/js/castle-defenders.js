@@ -2,6 +2,19 @@
 
 const socket = io();
 
+// Socket connection debugging
+socket.on('connect', () => {
+  console.log('Socket connected:', socket.id);
+});
+
+socket.on('disconnect', () => {
+  console.log('Socket disconnected');
+});
+
+socket.on('connect_error', (error) => {
+  console.error('Socket connection error:', error);
+});
+
 // Game State
 let playerId = null;
 let playerProfile = null;
@@ -150,13 +163,50 @@ function setupEventListeners() {
 function handleLogin() {
   const nameInput = document.getElementById('player-name');
   const name = nameInput.value.trim() || 'Defender';
+  const playBtn = document.getElementById('play-btn');
+  
+  // Visual feedback
+  playBtn.textContent = '⏳ Connecting...';
+  playBtn.disabled = true;
   
   localStorage.setItem('castleDefendersPlayerName', name);
+  
+  console.log('Attempting login with name:', name, 'and playerId:', getPlayerId());
+  console.log('Socket connected:', socket.connected, 'Socket ID:', socket.id);
+  
+  if (!socket.connected) {
+    console.error('Socket not connected! Attempting to reconnect...');
+    playBtn.textContent = '🔄 Reconnecting...';
+    socket.connect();
+    // Wait a moment and try again
+    setTimeout(() => {
+      if (socket.connected) {
+        socket.emit('cd:login', {
+          playerId: getPlayerId(),
+          playerName: name
+        });
+      } else {
+        playBtn.innerHTML = '<span class="btn-icon">⚔️</span> Enter the Realm';
+        playBtn.disabled = false;
+        alert('Could not connect to server. Please check your internet connection and try again.');
+      }
+    }, 2000);
+    return;
+  }
   
   socket.emit('cd:login', {
     playerId: getPlayerId(),
     playerName: name
   });
+  
+  // Reset button after timeout if no response
+  setTimeout(() => {
+    if (!playerProfile) {
+      playBtn.innerHTML = '<span class="btn-icon">⚔️</span> Enter the Realm';
+      playBtn.disabled = false;
+      console.error('No login response received after 5 seconds');
+    }
+  }, 5000);
 }
 
 function sendChat() {
@@ -2258,11 +2308,20 @@ function addChatMessage(sender, message) {
 
 // Socket event handlers - prefixed with cd: for Castle Defenders
 socket.on('cd:loginSuccess', (data) => {
+  console.log('Login successful:', data);
+  
   playerProfile = data.profile;
   towerTypes = data.towerTypes;
   perks = data.perks;
   unlockedTowers = data.unlockedTowers;
   xpForNextLevel = data.xpForNextLevel;
+  
+  // Reset login button
+  const playBtn = document.getElementById('play-btn');
+  if (playBtn) {
+    playBtn.innerHTML = '<span class="btn-icon">⚔️</span> Enter the Realm';
+    playBtn.disabled = false;
+  }
   
   updateProfileUI();
   showScreen('lobby');
@@ -2515,8 +2574,13 @@ socket.on('cd:actionFailed', (data) => {
 });
 
 socket.on('cd:error', (data) => {
-  addChatMessage('System', `❌ ${data.message}`);
-  console.log('Error:', data.message);
+  console.error('CD Error:', data.message);
+  // Show error as alert if not in game yet, otherwise use chat
+  if (!gameState) {
+    alert('Error: ' + data.message);
+  } else {
+    addChatMessage('System', `❌ ${data.message}`);
+  }
 });
 
 socket.on('cd:perkBought', (data) => {
@@ -2562,11 +2626,10 @@ socket.on('cd:gameEnded', (data) => {
   openModal('gameover-modal');
 });
 
-socket.on('cd:error', (data) => {
-  alert(data.message);
-});
-
 socket.on('disconnect', () => {
-  addChatMessage('System', '⚠️ Disconnected from server. Refresh to reconnect.');
+  console.log('Disconnected from server');
+  if (gameState) {
+    addChatMessage('System', '⚠️ Disconnected from server. Refresh to reconnect.');
+  }
 });
 
