@@ -262,12 +262,19 @@ class Player:
         base_cost = building["cost"]
         base_resources = building.get("cost_resources", {})
         
-        # Cost scaling: 8% increase per building owned
-        scale_factor = 1.08 ** count_owned
+        # Cost scaling: 0.007% increase per building, caps at 100,000 buildings (~1000x max)
+        # This allows scaling up to 100k buildings without hitting infinity
+        capped_count = min(count_owned, 100000)
+        scale_factor = 1.00007 ** capped_count  # ~1000x at 100k buildings
+        resource_scale = 1.00003 ** capped_count  # ~20x at 100k buildings
+        
+        # Safety cap to prevent any overflow
+        scale_factor = min(scale_factor, 10000.0)
+        resource_scale = min(resource_scale, 1000.0)
         
         scaled_money = int(base_cost * scale_factor)
         scaled_resources = {
-            res_id: int(amount * (1.05 ** count_owned))  # 5% increase for resources
+            res_id: int(amount * resource_scale)
             for res_id, amount in base_resources.items()
         }
         
