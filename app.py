@@ -573,33 +573,47 @@ def handle_cd_login(data):
 
 
 @socketio.on('cd:joinGame')
-def handle_cd_join_game():
-    """Castle Defenders player joins a game"""
+def handle_cd_join_game(data=None):
+    """Castle Defenders player joins an existing game"""
     from flask import request
+    from flask_socketio import join_room
     
     player = cd_player_manager.get_player_by_socket(request.sid)
     if not player:
         emit('cd:error', {'message': 'Please login first'})
         return
     
-    game = cd_game_manager.find_or_create_game()
+    # Check if joining a specific game or finding any game
+    game_id = data.get('gameId') if data else None
+    
+    if game_id:
+        game = cd_game_manager.get_game(game_id)
+        if not game:
+            emit('cd:error', {'message': 'Game not found'})
+            return
+        if len(game.players) >= 8:
+            emit('cd:error', {'message': 'Game is full'})
+            return
+    else:
+        game = cd_game_manager.find_or_create_game()
+    
     game_player = game.add_player(request.sid, player)
     cd_socket_to_game[request.sid] = game.id
     
     # Join the socket to the game room for broadcasts
-    from flask_socketio import join_room
     join_room(game.id)
     
-    # Don't auto-start - let players join first, game starts when first wave is triggered
-    # Game state stays as 'waiting' or 'playing' to allow more players to join
+    # Send full game state including all existing towers
+    full_state = game.get_state()
     
     emit('cd:gameJoined', {
         'gameId': game.id,
-        'state': game.get_state(),
-        'playerId': request.sid
+        'state': full_state,
+        'playerId': request.sid,
+        'isNewGame': len(game.players) == 1
     })
     
-    # Notify all players in the game (including the new one) about all current players
+    # Notify all players in the game about the updated player list
     player_list = []
     for pid, p in game.players.items():
         player_list.append({
@@ -610,6 +624,50 @@ def handle_cd_join_game():
         })
     
     socketio.emit('cd:playerList', {'players': player_list}, room=game.id)
+
+
+@socketio.on('cd:createGame')
+def handle_cd_create_game():
+    """Castle Defenders player creates a new game"""
+    from flask import request
+    from flask_socketio import join_room
+    
+    player = cd_player_manager.get_player_by_socket(request.sid)
+    if not player:
+        emit('cd:error', {'message': 'Please login first'})
+        return
+    
+    # Create a brand new game (don't join existing)
+    game = cd_game_manager.create_new_game()
+    game_player = game.add_player(request.sid, player)
+    cd_socket_to_game[request.sid] = game.id
+    
+    # Join the socket to the game room
+    join_room(game.id)
+    
+    emit('cd:gameJoined', {
+        'gameId': game.id,
+        'state': game.get_state(),
+        'playerId': request.sid,
+        'isNewGame': True
+    })
+    
+    # Send player list (just this player)
+    socketio.emit('cd:playerList', {
+        'players': [{
+            'playerId': request.sid,
+            'playerName': player.name,
+            'playerLevel': player.level,
+            'gold': game_player.gold
+        }]
+    }, room=game.id)
+
+
+@socketio.on('cd:getOpenGames')
+def handle_cd_get_open_games():
+    """Get list of open games that can be joined"""
+    open_games = cd_game_manager.get_open_games()
+    emit('cd:openGames', {'games': open_games})
 
 
 @socketio.on('cd:startWave')
