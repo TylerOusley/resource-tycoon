@@ -719,11 +719,16 @@ def handle_cd_place_tower(data):
     result = game.place_tower(request.sid, plot_id, tower_type)
     
     if result['success']:
-        for player_id in game.players:
-            socketio.emit('cd:towerPlaced', {
-                'tower': result['tower'],
-                'playerId': request.sid
-            }, room=player_id)
+        # Get the player's updated gold
+        player = game.players.get(request.sid)
+        player_gold = player.gold if player else 0
+        
+        # Broadcast to all players in the game
+        socketio.emit('cd:towerPlaced', {
+            'tower': result['tower'],
+            'playerId': request.sid,
+            'playerGold': player_gold
+        }, room=game.id)
     else:
         emit('cd:actionFailed', {'error': result['error']})
 
@@ -744,10 +749,15 @@ def handle_cd_sell_tower(data):
     result = game.sell_tower(request.sid, data.get('plotId'))
     
     if result['success']:
+        # Get updated gold
+        player = game.players.get(request.sid)
+        player_gold = player.gold if player else 0
+        
         socketio.emit('cd:towerSold', {
             'plotId': data.get('plotId'),
             'playerId': request.sid,
-            'refund': result['refund']
+            'refund': result['refund'],
+            'playerGold': player_gold
         }, room=game.id)
     else:
         emit('cd:actionFailed', {'error': result['error']})
