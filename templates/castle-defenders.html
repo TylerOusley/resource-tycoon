@@ -208,6 +208,12 @@
         <button id="ready-btn" class="btn-success hidden">
           Ready!
         </button>
+        <button id="end-game-btn" class="btn-danger" onclick="voteEndGame()">
+          End Game (0/1)
+        </button>
+        <button id="send-gold-btn" class="btn-gold" onclick="openSendGoldModal()">
+          💰 Send Gold
+        </button>
       </div>
 
       <div class="chat-container">
@@ -230,6 +236,41 @@
       <div id="results-list" class="results-list"></div>
       <div class="gameover-actions">
         <button id="return-lobby-btn" class="btn-primary">Return to Lobby</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Send Gold Modal -->
+  <div id="send-gold-modal" class="modal">
+    <div class="modal-content send-gold-content">
+      <div class="modal-header">
+        <h2>💰 Send Gold</h2>
+        <button class="close-btn" onclick="closeModal('send-gold-modal')">&times;</button>
+      </div>
+      <div class="send-gold-form">
+        <div class="form-group">
+          <label>Select Player:</label>
+          <select id="send-gold-target" class="form-select">
+            <option value="">-- Select a player --</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Amount:</label>
+          <div class="gold-amount-input">
+            <input type="number" id="send-gold-amount" min="1" placeholder="Enter amount" class="form-input">
+            <span class="gold-icon">💰</span>
+          </div>
+          <div class="quick-amounts">
+            <button class="quick-btn" onclick="setGoldAmount(50)">50</button>
+            <button class="quick-btn" onclick="setGoldAmount(100)">100</button>
+            <button class="quick-btn" onclick="setGoldAmount(250)">250</button>
+            <button class="quick-btn" onclick="setGoldAmount('all')">All</button>
+          </div>
+        </div>
+        <div class="form-group">
+          <p class="your-gold">Your gold: <span id="send-gold-current">0</span></p>
+        </div>
+        <button class="btn-primary btn-send-gold" onclick="confirmSendGold()">Send Gold</button>
       </div>
     </div>
   </div>
