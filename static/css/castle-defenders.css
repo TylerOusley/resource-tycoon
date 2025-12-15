@@ -1225,3 +1225,131 @@ body {
   color: #ffd700;
   font-size: 0.7rem;
 }
+
+/* Lobby Actions */
+.lobby-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.lobby-secondary-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.btn-accent {
+  background: linear-gradient(135deg, #00c853 0%, #00a040 100%);
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  font-family: 'Cinzel', serif;
+  font-size: 1rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.btn-accent:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(0, 200, 83, 0.4);
+}
+
+/* Open Games Panel */
+.open-games-panel {
+  background: linear-gradient(135deg, rgba(30, 30, 40, 0.98) 0%, rgba(20, 20, 30, 0.98) 100%);
+  border: 2px solid var(--gold);
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-top: 1.5rem;
+  max-width: 500px;
+  width: 100%;
+}
+
+.open-games-panel.hidden {
+  display: none;
+}
+
+.open-games-panel h3 {
+  font-family: 'Cinzel', serif;
+  color: var(--gold);
+  text-align: center;
+  margin-bottom: 1rem;
+}
+
+.open-games-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-height: 300px;
+  overflow-y: auto;
+  margin-bottom: 1rem;
+}
+
+.no-games {
+  text-align: center;
+  color: var(--text-dim);
+  padding: 2rem;
+}
+
+.open-game-card {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  transition: all 0.2s ease;
+}
+
+.open-game-card:hover {
+  border-color: var(--gold);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.open-game-card .game-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.open-game-card .game-wave {
+  font-family: 'Cinzel', serif;
+  color: var(--gold);
+  font-size: 1.1rem;
+}
+
+.open-game-card .game-players {
+  color: var(--text-dim);
+  font-size: 0.9rem;
+}
+
+.open-game-card .game-player-names {
+  color: var(--text);
+  font-size: 0.85rem;
+  opacity: 0.8;
+}
+
+.open-game-card .btn-join-game {
+  background: linear-gradient(135deg, var(--gold) 0%, #b8860b 100%);
+  color: #1a1a2e;
+  border: none;
+  padding: 0.5rem 1rem;
+  font-family: 'Cinzel', serif;
+  font-weight: bold;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  align-self: flex-end;
+}
+
+.open-game-card .btn-join-game:hover {
+  transform: scale(1.05);
+  box-shadow: 0 2px 10px rgba(212, 168, 75, 0.4);
+}
