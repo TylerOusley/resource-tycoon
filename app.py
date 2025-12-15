@@ -677,16 +677,30 @@ def handle_cd_start_wave():
     
     game_id = cd_socket_to_game.get(request.sid)
     if not game_id:
+        emit('cd:actionFailed', {'error': 'Not in a game'})
         return
     
     game = cd_game_manager.get_game(game_id)
-    if not game or game.state != 'playing':
+    if not game:
+        emit('cd:actionFailed', {'error': 'Game not found'})
+        return
+    
+    # Start game if still in waiting state
+    if game.state == 'waiting':
+        game.state = 'playing'
+    
+    # Can only start wave if game is playing and no wave in progress
+    if game.state != 'playing':
+        emit('cd:actionFailed', {'error': 'Game not in playing state'})
+        return
+    
+    if game.wave_in_progress:
+        emit('cd:actionFailed', {'error': 'Wave already in progress'})
         return
     
     game.start_wave()
     
-    for player_id in game.players:
-        socketio.emit('cd:waveStarted', {'wave': game.wave}, room=player_id)
+    socketio.emit('cd:waveStarted', {'wave': game.wave}, room=game.id)
 
 
 @socketio.on('cd:placeTower')
@@ -784,12 +798,17 @@ def handle_cd_upgrade_tower(data):
     result = game.upgrade_tower(request.sid, tower_id, upgrade_type)
     
     if result['success']:
+        # Get updated gold
+        player = game.players.get(request.sid)
+        player_gold = player.gold if player else 0
+        
         socketio.emit('cd:towerUpgraded', {
             'tower': result['tower'].to_dict(),
             'playerId': request.sid,
             'upgradeType': upgrade_type,
             'newLevel': result['newLevel'],
-            'cost': result['cost']
+            'cost': result['cost'],
+            'playerGold': player_gold
         }, room=game.id)
     else:
         emit('cd:actionFailed', {'error': result['error']})
