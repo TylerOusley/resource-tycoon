@@ -73,9 +73,24 @@ function setupEventListeners() {
     if (e.key === 'Enter') handleLogin();
   });
   
-  // Lobby
+  // Lobby - Game Creation/Joining
+  document.getElementById('create-game-btn').addEventListener('click', () => {
+    socket.emit('cd:createGame');
+  });
+  
   document.getElementById('join-game-btn').addEventListener('click', () => {
+    // Show open games panel
+    document.getElementById('open-games-panel').classList.remove('hidden');
+    socket.emit('cd:getOpenGames');
+  });
+  
+  document.getElementById('quick-join-btn').addEventListener('click', () => {
+    // Quick join finds or creates a game automatically
     socket.emit('cd:joinGame');
+  });
+  
+  document.getElementById('close-games-btn').addEventListener('click', () => {
+    document.getElementById('open-games-panel').classList.add('hidden');
   });
   
   document.getElementById('perks-btn').addEventListener('click', () => {
@@ -2257,6 +2272,9 @@ socket.on('cd:gameJoined', (data) => {
   playerId = data.playerId;
   gameState = data.state;
   
+  // Hide open games panel if visible
+  document.getElementById('open-games-panel').classList.add('hidden');
+  
   // Setup canvas
   canvas.width = CANVAS_WIDTH;
   canvas.height = CANVAS_HEIGHT;
@@ -2265,18 +2283,35 @@ socket.on('cd:gameJoined', (data) => {
   backgroundGenerated = false;
   backgroundCanvas = null;
   
-  // Reset tracked gold
+  // Reset tracked gold and selected states
   lastPlayerGold = 0;
+  selectedPlot = null;
+  selectedTower = null;
   
   showScreen('game');
   
-  // Force render tower buttons
+  // Force render tower buttons and UI
   renderTowerButtons();
+  updateTowerPanel();
   updateGameUI();
   render();
   
-  addChatMessage('System', '🏰 Welcome to the battle!');
+  // Show appropriate welcome message
+  const towerCount = gameState.towers?.length || 0;
+  const playerCount = gameState.players?.length || 1;
+  
+  if (data.isNewGame) {
+    addChatMessage('System', '🏰 New game created! Share the game ID with friends to play together.');
+    addChatMessage('System', `📋 Game ID: ${data.gameId}`);
+  } else {
+    addChatMessage('System', `🏰 Joined game with ${playerCount} player(s)!`);
+    if (towerCount > 0) {
+      addChatMessage('System', `🗼 ${towerCount} tower(s) already placed.`);
+    }
+  }
+  
   addChatMessage('System', '💡 Click a tower from the right panel, then click an empty plot to build!');
+  addChatMessage('System', '⚔️ Click "Start Wave" when ready to begin!');
 });
 
 socket.on('cd:playerJoined', (data) => {
@@ -2349,6 +2384,32 @@ socket.on('cd:playerList', (data) => {
 socket.on('cd:playerJoined', (data) => {
   addChatMessage('System', `👋 ${data.playerName} (Lv.${data.playerLevel}) joined the game!`);
 });
+
+socket.on('cd:openGames', (data) => {
+  const container = document.getElementById('open-games-list');
+  const games = data.games || [];
+  
+  if (games.length === 0) {
+    container.innerHTML = '<p class="no-games">No open games found. Create a new game!</p>';
+    return;
+  }
+  
+  container.innerHTML = games.map(game => `
+    <div class="open-game-card" data-game-id="${game.id}">
+      <div class="game-info">
+        <span class="game-wave">Wave ${game.wave}</span>
+        <span class="game-players">${game.playerCount}/${game.maxPlayers} Players</span>
+      </div>
+      <div class="game-player-names">${game.players.join(', ')}</div>
+      <button class="btn-join-game" onclick="joinSpecificGame('${game.id}')">Join</button>
+    </div>
+  `).join('');
+});
+
+function joinSpecificGame(gameId) {
+  document.getElementById('open-games-panel').classList.add('hidden');
+  socket.emit('cd:joinGame', { gameId: gameId });
+}
 
 socket.on('cd:actionFailed', (data) => {
   addChatMessage('System', `⚠️ ${data.error}`);
