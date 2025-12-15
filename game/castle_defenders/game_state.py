@@ -893,10 +893,31 @@ class CastleGameManager:
                     return game
         
         # Create new game
+        return self.create_new_game()
+    
+    def create_new_game(self) -> CastleGame:
+        """Create a brand new game"""
         game_id = str(uuid.uuid4())[:8]
         game = CastleGame(game_id)
         self.games[game_id] = game
         return game
+    
+    def get_open_games(self) -> list:
+        """Get list of games that can be joined"""
+        open_games = []
+        for game in self.games.values():
+            if len(game.players) < 8 and len(game.players) > 0:
+                # Can join if waiting or in early waves
+                if game.state == "waiting" or (game.state == "playing" and game.wave <= 5):
+                    open_games.append({
+                        "id": game.id,
+                        "playerCount": len(game.players),
+                        "maxPlayers": 8,
+                        "wave": game.wave,
+                        "state": game.state,
+                        "players": [p.name for p in game.players.values()]
+                    })
+        return open_games
     
     def get_game(self, game_id: str) -> Optional[CastleGame]:
         """Get a game by ID"""
