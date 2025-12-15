@@ -759,8 +759,22 @@ function generateBackground() {
   backgroundGenerated = true;
 }
 
+// Frame rate control
+let lastFrameTime = 0;
+const targetFPS = 30; // Limit to 30 FPS to prevent freezing
+const frameInterval = 1000 / targetFPS;
+
 function render() {
   if (!gameState || !ctx) return;
+  
+  // Limit frame rate
+  const now = performance.now();
+  const elapsed = now - lastFrameTime;
+  if (elapsed < frameInterval) {
+    requestAnimationFrame(render);
+    return;
+  }
+  lastFrameTime = now - (elapsed % frameInterval);
   
   // Generate background once
   if (!backgroundGenerated) {
@@ -1032,14 +1046,24 @@ function render() {
     ctx.stroke();
   }
   
-  // Draw enemies
+  // Enable simple rendering mode when there are many objects (for performance)
+  const totalObjects = gameState.enemies.length + gameState.projectiles.length;
+  useSimpleRendering = totalObjects > 50;
+  
+  // Draw all enemies (simple mode handles performance)
   for (const enemy of gameState.enemies) {
     drawEnemy(enemy);
   }
   
+  // Create enemy lookup map for O(1) access (much faster than find())
+  const enemyMap = new Map();
+  for (const enemy of gameState.enemies) {
+    enemyMap.set(enemy.id, enemy);
+  }
+  
   // Draw projectiles with unique graphics per type
   for (const proj of gameState.projectiles) {
-    const target = gameState.enemies.find(e => e.id === proj.targetId);
+    const target = enemyMap.get(proj.targetId);
     let angle = 0;
     if (target) {
       angle = Math.atan2(target.y - proj.y, target.x - proj.x);
@@ -1904,10 +1928,30 @@ function drawTower(tower, plot, isSelected) {
   }
 }
 
+// Use simplified rendering when there are many enemies
+let useSimpleRendering = false;
+
 function drawEnemy(enemy) {
   const x = enemy.x;
   const y = enemy.y;
   const size = enemy.size;
+  
+  // Use simple rendering for performance when many enemies
+  if (useSimpleRendering) {
+    // Simple circle with color
+    ctx.fillStyle = enemy.color;
+    ctx.beginPath();
+    ctx.arc(x, y, size, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Simple health bar
+    const healthPercent = enemy.health / enemy.maxHealth;
+    ctx.fillStyle = '#333';
+    ctx.fillRect(x - size, y - size - 8, size * 2, 4);
+    ctx.fillStyle = healthPercent > 0.5 ? '#0f0' : '#f00';
+    ctx.fillRect(x - size, y - size - 8, size * 2 * healthPercent, 4);
+    return;
+  }
   
   // Shadow
   ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
