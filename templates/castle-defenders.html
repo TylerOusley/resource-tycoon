@@ -91,18 +91,37 @@
       </div>
 
       <div class="lobby-actions">
-        <button id="join-game-btn" class="btn-primary large">
+        <button id="create-game-btn" class="btn-primary large">
+          <span class="btn-icon">⚔️</span>
+          Create New Game
+        </button>
+        <button id="join-game-btn" class="btn-secondary large">
           <span class="btn-icon">🎮</span>
-          Join Battle
+          Join Existing Game
         </button>
-        <button id="perks-btn" class="btn-secondary">
-          <span class="btn-icon">✨</span>
-          Upgrade Perks
+        <button id="quick-join-btn" class="btn-accent">
+          <span class="btn-icon">⚡</span>
+          Quick Join
         </button>
-        <button id="towers-btn" class="btn-secondary">
-          <span class="btn-icon">🗼</span>
-          View Towers
-        </button>
+        <div class="lobby-secondary-actions">
+          <button id="perks-btn" class="btn-secondary">
+            <span class="btn-icon">✨</span>
+            Upgrade Perks
+          </button>
+          <button id="towers-btn" class="btn-secondary">
+            <span class="btn-icon">🗼</span>
+            View Towers
+          </button>
+        </div>
+      </div>
+      
+      <!-- Open Games List (initially hidden) -->
+      <div id="open-games-panel" class="open-games-panel hidden">
+        <h3>🌐 Available Games</h3>
+        <div id="open-games-list" class="open-games-list">
+          <p class="no-games">Looking for games...</p>
+        </div>
+        <button id="close-games-btn" class="btn-secondary">Cancel</button>
       </div>
     </div>
   </div>
