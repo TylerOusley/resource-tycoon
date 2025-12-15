@@ -1063,9 +1063,15 @@ class ResourceTycoon {
     }
     
     getBuildingCost(building, countOwned) {
-        // Cost scaling: 8% increase per building owned for money, 5% for resources
-        const moneyScale = Math.pow(1.08, countOwned);
-        const resourceScale = Math.pow(1.05, countOwned);
+        // Cost scaling: 0.007% per building, caps at 100,000 buildings (~1000x max)
+        const cappedCount = Math.min(countOwned, 100000);
+        
+        let moneyScale = Math.pow(1.00007, cappedCount);
+        let resourceScale = Math.pow(1.00003, cappedCount);
+        
+        // Safety cap
+        moneyScale = Math.min(moneyScale, 10000.0);
+        resourceScale = Math.min(resourceScale, 1000.0);
         
         const scaledMoney = Math.floor(building.cost * moneyScale);
         const scaledResources = {};
