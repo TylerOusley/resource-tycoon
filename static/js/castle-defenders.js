@@ -248,16 +248,27 @@ function handleSellTower() {
 function updateTowerPanel() {
   const sellBtn = document.getElementById('sell-tower-btn');
   const cancelBtn = document.getElementById('cancel-select-btn');
+  const upgradePanel = document.getElementById('tower-upgrade-panel') || createUpgradePanel();
   
   if (selectedPlot && selectedPlot.tower && selectedPlot.owner === playerId) {
     sellBtn.classList.remove('hidden');
     cancelBtn.classList.remove('hidden');
+    
+    // Show upgrade panel for owned tower
+    const tower = gameState?.towers?.find(t => t.id === selectedPlot.tower);
+    if (tower) {
+      showUpgradePanel(tower);
+    } else {
+      upgradePanel.classList.add('hidden');
+    }
   } else if (selectedTower) {
     sellBtn.classList.add('hidden');
     cancelBtn.classList.remove('hidden');
+    upgradePanel.classList.add('hidden');
   } else {
     sellBtn.classList.add('hidden');
     cancelBtn.classList.add('hidden');
+    upgradePanel.classList.add('hidden');
   }
   
   // Update tower buttons to show selected state (don't recreate, just update class)
@@ -267,6 +278,83 @@ function updateTowerPanel() {
     } else {
       btn.classList.remove('selected');
     }
+  });
+  
+  renderTowerButtons();
+}
+
+function createUpgradePanel() {
+  const panel = document.createElement('div');
+  panel.id = 'tower-upgrade-panel';
+  panel.className = 'tower-upgrade-panel hidden';
+  panel.innerHTML = `
+    <h4>🔧 Upgrade Tower</h4>
+    <div class="upgrade-buttons">
+      <button class="upgrade-btn" data-type="damage">
+        <span class="upgrade-icon">⚔️</span>
+        <span class="upgrade-name">Damage</span>
+        <span class="upgrade-level">Lv.1</span>
+        <span class="upgrade-cost">50g</span>
+      </button>
+      <button class="upgrade-btn" data-type="range">
+        <span class="upgrade-icon">📏</span>
+        <span class="upgrade-name">Range</span>
+        <span class="upgrade-level">Lv.1</span>
+        <span class="upgrade-cost">40g</span>
+      </button>
+      <button class="upgrade-btn" data-type="speed">
+        <span class="upgrade-icon">⚡</span>
+        <span class="upgrade-name">Speed</span>
+        <span class="upgrade-level">Lv.1</span>
+        <span class="upgrade-cost">60g</span>
+      </button>
+    </div>
+  `;
+  
+  // Add click handlers
+  panel.querySelectorAll('.upgrade-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const tower = gameState?.towers?.find(t => t.id === selectedPlot?.tower);
+      if (tower) {
+        socket.emit('cd:upgradeTower', {
+          towerId: tower.id,
+          upgradeType: btn.dataset.type
+        });
+      }
+    });
+  });
+  
+  // Insert after sell button
+  const towerPanel = document.querySelector('.tower-panel');
+  towerPanel.appendChild(panel);
+  return panel;
+}
+
+function showUpgradePanel(tower) {
+  const panel = document.getElementById('tower-upgrade-panel');
+  if (!panel) return;
+  
+  panel.classList.remove('hidden');
+  
+  const player = gameState?.players?.find(p => p.id === playerId);
+  const playerGold = player?.gold || 0;
+  
+  const upgradeTypes = ['damage', 'range', 'speed'];
+  upgradeTypes.forEach(type => {
+    const btn = panel.querySelector(`.upgrade-btn[data-type="${type}"]`);
+    if (!btn) return;
+    
+    const levelKey = type + 'Level';
+    const level = tower[levelKey] || 1;
+    const cost = tower.upgradeCosts?.[type];
+    const maxed = cost === null || cost === undefined;
+    
+    btn.querySelector('.upgrade-level').textContent = `Lv.${level}${maxed ? ' MAX' : ''}`;
+    btn.querySelector('.upgrade-cost').textContent = maxed ? 'MAXED' : `${cost}g`;
+    
+    btn.disabled = maxed || playerGold < cost;
+    btn.classList.toggle('maxed', maxed);
+    btn.classList.toggle('affordable', !maxed && playerGold >= cost);
   });
 }
 
@@ -1763,19 +1851,330 @@ function drawEnemy(enemy) {
   ctx.ellipse(x + 2, y + size, size * 0.8, size * 0.3, 0, 0, Math.PI * 2);
   ctx.fill();
   
-  // Body
-  ctx.fillStyle = enemy.color;
-  ctx.beginPath();
-  ctx.arc(x, y, size, 0, Math.PI * 2);
-  ctx.fill();
+  // Draw enemy based on type
+  switch(enemy.type) {
+    case 'grunt':
+      // Goblin-like creature
+      ctx.fillStyle = '#8B0000';
+      ctx.beginPath();
+      ctx.arc(x, y, size, 0, Math.PI * 2);
+      ctx.fill();
+      // Face
+      ctx.fillStyle = '#5a0000';
+      ctx.beginPath();
+      ctx.arc(x - size * 0.3, y - size * 0.2, size * 0.2, 0, Math.PI * 2);
+      ctx.arc(x + size * 0.3, y - size * 0.2, size * 0.2, 0, Math.PI * 2);
+      ctx.fill();
+      // Angry eyes
+      ctx.fillStyle = '#ffff00';
+      ctx.beginPath();
+      ctx.arc(x - size * 0.3, y - size * 0.2, size * 0.12, 0, Math.PI * 2);
+      ctx.arc(x + size * 0.3, y - size * 0.2, size * 0.12, 0, Math.PI * 2);
+      ctx.fill();
+      // Teeth
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(x - size * 0.3, y + size * 0.2, size * 0.15, size * 0.2);
+      ctx.fillRect(x + size * 0.15, y + size * 0.2, size * 0.15, size * 0.2);
+      break;
+      
+    case 'runner':
+      // Fast wolf-like creature
+      ctx.fillStyle = '#FF6347';
+      // Body (elongated)
+      ctx.beginPath();
+      ctx.ellipse(x, y, size * 1.3, size * 0.8, 0, 0, Math.PI * 2);
+      ctx.fill();
+      // Head
+      ctx.beginPath();
+      ctx.arc(x + size * 0.8, y - size * 0.2, size * 0.5, 0, Math.PI * 2);
+      ctx.fill();
+      // Ears
+      ctx.fillStyle = '#cc4030';
+      ctx.beginPath();
+      ctx.moveTo(x + size * 0.9, y - size * 0.6);
+      ctx.lineTo(x + size * 1.1, y - size);
+      ctx.lineTo(x + size * 1.3, y - size * 0.5);
+      ctx.fill();
+      // Eye
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.arc(x + size * 0.95, y - size * 0.25, size * 0.15, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#000';
+      ctx.beginPath();
+      ctx.arc(x + size * 0.98, y - size * 0.25, size * 0.08, 0, Math.PI * 2);
+      ctx.fill();
+      break;
+      
+    case 'tank':
+      // Heavy armored ogre
+      ctx.fillStyle = '#4A4A4A';
+      // Body
+      ctx.beginPath();
+      ctx.arc(x, y, size, 0, Math.PI * 2);
+      ctx.fill();
+      // Armor plates
+      ctx.fillStyle = '#6a6a6a';
+      ctx.beginPath();
+      ctx.arc(x, y - size * 0.3, size * 0.6, Math.PI, 0);
+      ctx.fill();
+      // Helmet
+      ctx.fillStyle = '#3a3a3a';
+      ctx.beginPath();
+      ctx.arc(x, y - size * 0.5, size * 0.5, Math.PI, 0);
+      ctx.fill();
+      // Visor
+      ctx.fillStyle = '#ff0000';
+      ctx.fillRect(x - size * 0.3, y - size * 0.4, size * 0.6, size * 0.15);
+      // Spikes
+      ctx.fillStyle = '#2a2a2a';
+      ctx.beginPath();
+      ctx.moveTo(x - size * 0.6, y - size * 0.6);
+      ctx.lineTo(x - size * 0.3, y - size);
+      ctx.lineTo(x, y - size * 0.6);
+      ctx.lineTo(x + size * 0.3, y - size);
+      ctx.lineTo(x + size * 0.6, y - size * 0.6);
+      ctx.fill();
+      break;
+      
+    case 'healer':
+      // Shaman with staff
+      ctx.fillStyle = '#98FB98';
+      ctx.beginPath();
+      ctx.arc(x, y, size, 0, Math.PI * 2);
+      ctx.fill();
+      // Hood
+      ctx.fillStyle = '#228B22';
+      ctx.beginPath();
+      ctx.arc(x, y - size * 0.3, size * 0.7, Math.PI * 1.2, Math.PI * 1.8);
+      ctx.lineTo(x, y - size);
+      ctx.fill();
+      // Staff
+      ctx.strokeStyle = '#8B4513';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(x + size * 0.8, y + size * 0.5);
+      ctx.lineTo(x + size * 0.8, y - size);
+      ctx.stroke();
+      // Staff glow
+      ctx.fillStyle = '#7fff00';
+      ctx.beginPath();
+      ctx.arc(x + size * 0.8, y - size, size * 0.3, 0, Math.PI * 2);
+      ctx.fill();
+      // Healing aura
+      ctx.strokeStyle = 'rgba(152, 251, 152, 0.5)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(x, y, size * 1.5, 0, Math.PI * 2);
+      ctx.stroke();
+      break;
+      
+    case 'shield':
+      // Knight with shield
+      ctx.fillStyle = '#4169E1';
+      ctx.beginPath();
+      ctx.arc(x, y, size, 0, Math.PI * 2);
+      ctx.fill();
+      // Shield
+      ctx.fillStyle = '#1e3a8a';
+      ctx.beginPath();
+      ctx.moveTo(x - size, y - size * 0.5);
+      ctx.lineTo(x - size, y + size * 0.5);
+      ctx.lineTo(x - size * 0.3, y + size * 0.8);
+      ctx.lineTo(x - size * 0.3, y - size * 0.5);
+      ctx.closePath();
+      ctx.fill();
+      // Shield emblem
+      ctx.fillStyle = '#ffd700';
+      ctx.beginPath();
+      ctx.arc(x - size * 0.65, y, size * 0.2, 0, Math.PI * 2);
+      ctx.fill();
+      // Helmet
+      ctx.fillStyle = '#2d4aa8';
+      ctx.beginPath();
+      ctx.arc(x, y - size * 0.3, size * 0.5, Math.PI, 0);
+      ctx.fill();
+      // Eye slit
+      ctx.fillStyle = '#000';
+      ctx.fillRect(x - size * 0.3, y - size * 0.3, size * 0.6, size * 0.1);
+      break;
+      
+    case 'boss':
+      // Giant demon boss
+      ctx.fillStyle = '#8B008B';
+      ctx.beginPath();
+      ctx.arc(x, y, size, 0, Math.PI * 2);
+      ctx.fill();
+      // Horns
+      ctx.fillStyle = '#4a004a';
+      ctx.beginPath();
+      ctx.moveTo(x - size * 0.6, y - size * 0.5);
+      ctx.lineTo(x - size * 0.9, y - size * 1.3);
+      ctx.lineTo(x - size * 0.3, y - size * 0.7);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(x + size * 0.6, y - size * 0.5);
+      ctx.lineTo(x + size * 0.9, y - size * 1.3);
+      ctx.lineTo(x + size * 0.3, y - size * 0.7);
+      ctx.fill();
+      // Glowing eyes
+      ctx.fillStyle = '#ff0000';
+      ctx.beginPath();
+      ctx.arc(x - size * 0.3, y - size * 0.2, size * 0.2, 0, Math.PI * 2);
+      ctx.arc(x + size * 0.3, y - size * 0.2, size * 0.2, 0, Math.PI * 2);
+      ctx.fill();
+      // Evil glow
+      ctx.shadowColor = '#ff00ff';
+      ctx.shadowBlur = 20;
+      ctx.fillStyle = 'rgba(139, 0, 139, 0.3)';
+      ctx.beginPath();
+      ctx.arc(x, y, size * 1.3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      // Crown
+      ctx.fillStyle = '#ffd700';
+      ctx.beginPath();
+      ctx.moveTo(x - size * 0.5, y - size * 0.6);
+      ctx.lineTo(x - size * 0.4, y - size * 0.9);
+      ctx.lineTo(x - size * 0.2, y - size * 0.7);
+      ctx.lineTo(x, y - size * 0.95);
+      ctx.lineTo(x + size * 0.2, y - size * 0.7);
+      ctx.lineTo(x + size * 0.4, y - size * 0.9);
+      ctx.lineTo(x + size * 0.5, y - size * 0.6);
+      ctx.fill();
+      break;
+      
+    case 'swarm':
+      // Small bat
+      ctx.fillStyle = '#FFD700';
+      // Body
+      ctx.beginPath();
+      ctx.ellipse(x, y, size * 0.6, size * 0.8, 0, 0, Math.PI * 2);
+      ctx.fill();
+      // Wings
+      ctx.fillStyle = '#daa520';
+      ctx.beginPath();
+      ctx.moveTo(x - size * 0.3, y);
+      ctx.quadraticCurveTo(x - size * 1.2, y - size * 0.8, x - size * 0.8, y + size * 0.3);
+      ctx.lineTo(x - size * 0.3, y);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(x + size * 0.3, y);
+      ctx.quadraticCurveTo(x + size * 1.2, y - size * 0.8, x + size * 0.8, y + size * 0.3);
+      ctx.lineTo(x + size * 0.3, y);
+      ctx.fill();
+      // Eyes
+      ctx.fillStyle = '#ff0000';
+      ctx.beginPath();
+      ctx.arc(x - size * 0.15, y - size * 0.2, size * 0.12, 0, Math.PI * 2);
+      ctx.arc(x + size * 0.15, y - size * 0.2, size * 0.12, 0, Math.PI * 2);
+      ctx.fill();
+      break;
+      
+    case 'ghost':
+      // Ghostly spirit
+      ctx.fillStyle = 'rgba(230, 230, 250, 0.7)';
+      // Wavy body
+      ctx.beginPath();
+      ctx.arc(x, y - size * 0.3, size * 0.8, Math.PI, 0);
+      const time = Date.now() / 200;
+      ctx.quadraticCurveTo(x + size, y + size * 0.5, x + size * 0.5, y + size + Math.sin(time) * 3);
+      ctx.quadraticCurveTo(x, y + size * 0.7, x, y + size * 1.1 + Math.sin(time + 1) * 3);
+      ctx.quadraticCurveTo(x, y + size * 0.7, x - size * 0.5, y + size + Math.sin(time + 2) * 3);
+      ctx.quadraticCurveTo(x - size, y + size * 0.5, x - size * 0.8, y - size * 0.3);
+      ctx.fill();
+      // Ghostly glow
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+      // Eyes
+      ctx.fillStyle = '#000';
+      ctx.beginPath();
+      ctx.ellipse(x - size * 0.25, y - size * 0.3, size * 0.15, size * 0.25, 0, 0, Math.PI * 2);
+      ctx.ellipse(x + size * 0.25, y - size * 0.3, size * 0.15, size * 0.25, 0, 0, Math.PI * 2);
+      ctx.fill();
+      // Mouth
+      ctx.beginPath();
+      ctx.ellipse(x, y + size * 0.1, size * 0.2, size * 0.15, 0, 0, Math.PI * 2);
+      ctx.fill();
+      break;
+      
+    case 'berserker':
+      // Enraged warrior
+      const enraged = enemy.health < enemy.maxHealth * 0.5;
+      ctx.fillStyle = enraged ? '#ff0000' : '#DC143C';
+      ctx.beginPath();
+      ctx.arc(x, y, size, 0, Math.PI * 2);
+      ctx.fill();
+      // Muscles/armor
+      ctx.fillStyle = enraged ? '#cc0000' : '#aa1030';
+      ctx.beginPath();
+      ctx.arc(x - size * 0.4, y, size * 0.4, 0, Math.PI * 2);
+      ctx.arc(x + size * 0.4, y, size * 0.4, 0, Math.PI * 2);
+      ctx.fill();
+      // Angry face
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.arc(x - size * 0.25, y - size * 0.2, size * 0.15, 0, Math.PI * 2);
+      ctx.arc(x + size * 0.25, y - size * 0.2, size * 0.15, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#000';
+      ctx.beginPath();
+      ctx.arc(x - size * 0.25, y - size * 0.2, size * 0.08, 0, Math.PI * 2);
+      ctx.arc(x + size * 0.25, y - size * 0.2, size * 0.08, 0, Math.PI * 2);
+      ctx.fill();
+      // Rage effect when enraged
+      if (enraged) {
+        ctx.strokeStyle = '#ff6600';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(x, y, size * 1.3, 0, Math.PI * 2);
+        ctx.stroke();
+        // Flames
+        ctx.fillStyle = 'rgba(255, 100, 0, 0.6)';
+        for (let i = 0; i < 5; i++) {
+          const angle = (time + i * 1.2) % (Math.PI * 2);
+          ctx.beginPath();
+          ctx.arc(x + Math.cos(angle) * size * 1.1, y + Math.sin(angle) * size * 1.1 - 5, 5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+      // Weapon
+      ctx.fillStyle = '#666';
+      ctx.fillRect(x + size * 0.6, y - size * 0.8, 4, size * 1.6);
+      ctx.fillStyle = '#888';
+      ctx.beginPath();
+      ctx.moveTo(x + size * 0.5, y - size * 0.8);
+      ctx.lineTo(x + size * 0.62, y - size * 1.2);
+      ctx.lineTo(x + size * 0.8, y - size * 0.8);
+      ctx.fill();
+      break;
+      
+    default:
+      // Fallback generic enemy
+      ctx.fillStyle = enemy.color;
+      ctx.beginPath();
+      ctx.arc(x, y, size, 0, Math.PI * 2);
+      ctx.fill();
+  }
   
-  // Effects
+  // Status effects (apply on top of any enemy type)
   if (enemy.slowed) {
     ctx.strokeStyle = '#00ced1';
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.arc(x, y, size + 3, 0, Math.PI * 2);
     ctx.stroke();
+    // Ice crystals
+    ctx.fillStyle = 'rgba(0, 206, 209, 0.6)';
+    for (let i = 0; i < 4; i++) {
+      const angle = (Date.now() / 500 + i * Math.PI / 2) % (Math.PI * 2);
+      ctx.beginPath();
+      ctx.moveTo(x + Math.cos(angle) * (size + 5), y + Math.sin(angle) * (size + 5));
+      ctx.lineTo(x + Math.cos(angle + 0.2) * (size + 10), y + Math.sin(angle + 0.2) * (size + 10));
+      ctx.lineTo(x + Math.cos(angle - 0.2) * (size + 10), y + Math.sin(angle - 0.2) * (size + 10));
+      ctx.fill();
+    }
   }
   
   if (enemy.stunned) {
@@ -1784,16 +2183,31 @@ function drawEnemy(enemy) {
       const angle = (Date.now() / 200 + i * 2.1) % (Math.PI * 2);
       const starX = x + Math.cos(angle) * (size + 8);
       const starY = y + Math.sin(angle) * (size + 8);
+      // Star shape
       ctx.beginPath();
-      ctx.arc(starX, starY, 3, 0, Math.PI * 2);
+      for (let j = 0; j < 5; j++) {
+        const a = (j * Math.PI * 2 / 5) - Math.PI / 2;
+        const r = j % 2 === 0 ? 4 : 2;
+        if (j === 0) ctx.moveTo(starX + Math.cos(a) * r, starY + Math.sin(a) * r);
+        else ctx.lineTo(starX + Math.cos(a) * r, starY + Math.sin(a) * r);
+      }
       ctx.fill();
     }
   }
   
   if (enemy.burning) {
-    ctx.fillStyle = 'rgba(255, 100, 0, 0.5)';
+    // Fire effect
+    ctx.fillStyle = 'rgba(255, 100, 0, 0.7)';
+    for (let i = 0; i < 4; i++) {
+      const offset = Math.sin(Date.now() / 100 + i) * 3;
+      ctx.beginPath();
+      ctx.moveTo(x - size * 0.3 + i * size * 0.2, y - size * 0.5);
+      ctx.quadraticCurveTo(x - size * 0.2 + i * size * 0.2, y - size - offset, x + i * size * 0.2, y - size * 0.5);
+      ctx.fill();
+    }
+    ctx.fillStyle = 'rgba(255, 200, 0, 0.5)';
     ctx.beginPath();
-    ctx.arc(x, y - size/2, size * 0.6, 0, Math.PI * 2);
+    ctx.arc(x, y - size * 0.3, size * 0.4, 0, Math.PI * 2);
     ctx.fill();
   }
   
@@ -1803,10 +2217,15 @@ function drawEnemy(enemy) {
   const barHeight = 4;
   
   ctx.fillStyle = '#333333';
-  ctx.fillRect(x - barWidth/2, y - size - 10, barWidth, barHeight);
+  ctx.fillRect(x - barWidth/2, y - size - 12, barWidth, barHeight);
   
   ctx.fillStyle = healthPercent > 0.5 ? '#22cc22' : healthPercent > 0.25 ? '#cccc22' : '#cc2222';
-  ctx.fillRect(x - barWidth/2, y - size - 10, barWidth * healthPercent, barHeight);
+  ctx.fillRect(x - barWidth/2, y - size - 12, barWidth * healthPercent, barHeight);
+  
+  // Border
+  ctx.strokeStyle = '#000';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(x - barWidth/2, y - size - 12, barWidth, barHeight);
 }
 
 function addChatMessage(sender, message) {
@@ -1889,6 +2308,46 @@ socket.on('cd:towerSold', (data) => {
   addChatMessage('System', `Tower sold for ${data.refund} gold.`);
   selectedPlot = null;
   updateTowerPanel();
+});
+
+socket.on('cd:towerUpgraded', (data) => {
+  // Update the tower in gameState
+  if (gameState && gameState.towers) {
+    const idx = gameState.towers.findIndex(t => t.id === data.tower.id);
+    if (idx >= 0) {
+      gameState.towers[idx] = data.tower;
+    }
+  }
+  
+  const upgradeNames = { damage: 'Damage', range: 'Range', speed: 'Speed' };
+  addChatMessage('System', `🔧 Tower ${upgradeNames[data.upgradeType]} upgraded to level ${data.newLevel}! (-${data.cost}g)`);
+  
+  // Refresh upgrade panel if this tower is selected
+  if (selectedPlot && selectedPlot.tower === data.tower.id) {
+    showUpgradePanel(data.tower);
+  }
+  
+  updateTowerPanel();
+});
+
+socket.on('cd:playerList', (data) => {
+  // Update the player list in the UI
+  const playerListEl = document.getElementById('player-list');
+  if (playerListEl && data.players) {
+    playerListEl.innerHTML = data.players.map(p => `
+      <div class="player-item ${p.playerId === playerId ? 'self' : ''}">
+        <span class="player-name">${p.playerName}</span>
+        <span class="player-level">Lv.${p.playerLevel}</span>
+        <span class="player-gold">${p.gold}g</span>
+      </div>
+    `).join('');
+  }
+  
+  addChatMessage('System', `👥 ${data.players.length} player(s) in game`);
+});
+
+socket.on('cd:playerJoined', (data) => {
+  addChatMessage('System', `👋 ${data.playerName} (Lv.${data.playerLevel}) joined the game!`);
 });
 
 socket.on('cd:actionFailed', (data) => {
