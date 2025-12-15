@@ -253,8 +253,41 @@ class Player:
         
         return {"can": True}
     
+    def get_building_cost(self, building_id: str, count_owned: int = 0) -> Dict[str, Any]:
+        """Calculate the cost for the next building with scaling"""
+        building = BUILDINGS.get(building_id)
+        if not building:
+            return {"money": 0, "resources": {}}
+        
+        base_cost = building["cost"]
+        base_resources = building.get("cost_resources", {})
+        
+        # Cost scaling: 8% increase per building owned
+        scale_factor = 1.08 ** count_owned
+        
+        scaled_money = int(base_cost * scale_factor)
+        scaled_resources = {
+            res_id: int(amount * (1.05 ** count_owned))  # 5% increase for resources
+            for res_id, amount in base_resources.items()
+        }
+        
+        return {"money": scaled_money, "resources": scaled_resources}
+    
+    def get_bulk_building_cost(self, building_id: str, amount: int, start_count: int = 0) -> Dict[str, Any]:
+        """Calculate total cost for buying multiple buildings with scaling"""
+        total_money = 0
+        total_resources = {}
+        
+        for i in range(amount):
+            cost = self.get_building_cost(building_id, start_count + i)
+            total_money += cost["money"]
+            for res_id, res_amount in cost["resources"].items():
+                total_resources[res_id] = total_resources.get(res_id, 0) + res_amount
+        
+        return {"money": total_money, "resources": total_resources}
+    
     def buy_building(self, building_id: str, amount: int = 1) -> Dict[str, Any]:
-        """Purchase buildings (supports bulk purchase)"""
+        """Purchase buildings (supports bulk purchase with scaling costs)"""
         if building_id not in BUILDINGS:
             return {"success": False, "message": "Unknown building"}
         
@@ -264,34 +297,47 @@ class Player:
         if self.level < building.get("unlock_level", 1):
             return {"success": False, "message": f"Requires level {building['unlock_level']}"}
         
-        # Calculate how many we can actually afford
+        # Calculate how many we can actually afford with scaling costs
         amount = max(1, min(amount, 10000))  # Safety limit
         
-        cost_per_building = building["cost"]
-        resource_costs = building.get("cost_resources", {})
+        current_count = self.buildings.get(building_id, {}).get("count", 0)
         
-        # Calculate max affordable by money
-        max_by_money = int(self.money // cost_per_building) if cost_per_building > 0 else amount
+        # Find max affordable with scaling costs
+        actual_amount = 0
+        total_money_cost = 0
+        total_resource_costs = {}
         
-        # Calculate max affordable by resources
-        max_by_resources = amount
-        for res_id, res_amount in resource_costs.items():
-            owned = self.resources.get(res_id, 0)
-            max_for_this = int(owned // res_amount) if res_amount > 0 else amount
-            max_by_resources = min(max_by_resources, max_for_this)
-        
-        # Actual amount we can buy
-        actual_amount = min(amount, max_by_money, max_by_resources)
+        for i in range(amount):
+            cost = self.get_building_cost(building_id, current_count + i)
+            
+            # Check if we can afford this one
+            if self.money - total_money_cost < cost["money"]:
+                break
+            
+            can_afford_resources = True
+            for res_id, res_amount in cost["resources"].items():
+                current_res_cost = total_resource_costs.get(res_id, 0)
+                if self.resources.get(res_id, 0) - current_res_cost < res_amount:
+                    can_afford_resources = False
+                    break
+            
+            if not can_afford_resources:
+                break
+            
+            # We can afford this building
+            actual_amount += 1
+            total_money_cost += cost["money"]
+            for res_id, res_amount in cost["resources"].items():
+                total_resource_costs[res_id] = total_resource_costs.get(res_id, 0) + res_amount
         
         if actual_amount <= 0:
             return {"success": False, "message": "Cannot afford any buildings"}
         
-        # Deduct costs in bulk
-        total_money_cost = cost_per_building * actual_amount
+        # Deduct costs
         self.money -= total_money_cost
         
-        for res_id, res_amount in resource_costs.items():
-            self.resources[res_id] -= res_amount * actual_amount
+        for res_id, res_amount in total_resource_costs.items():
+            self.resources[res_id] -= res_amount
         
         # Add buildings
         if building_id not in self.buildings:
@@ -305,7 +351,27 @@ class Player:
         
         # Stats
         self.stats["buildings_purchased"] += actual_amount
-        self.add_xp(building.get("tier", 1) * 10 * actual_amount)
+        
+        # XP with diminishing returns
+        # Base XP per building: tier * 3
+        # But each building of same type gives less XP (diminishing returns)
+        tier = building.get("tier", 1)
+        current_count = self.buildings[building_id]["count"]
+        base_xp_per_building = tier * 3
+        
+        # Calculate XP with diminishing returns
+        # Formula: XP decreases by 2% for each building already owned (floor at 10% of base)
+        total_xp = 0
+        for i in range(actual_amount):
+            owned_before = current_count - actual_amount + i
+            diminish_factor = max(0.1, 1.0 - (owned_before * 0.02))
+            total_xp += base_xp_per_building * diminish_factor
+        
+        # Additional bulk buy penalty: only get 50% XP when buying more than 10 at once
+        if actual_amount > 10:
+            total_xp = total_xp * 0.5
+        
+        self.add_xp(int(total_xp))
         
         self.last_active = time.time()
         
@@ -346,7 +412,8 @@ class Player:
         self.money -= check["cost"]
         self.buildings[building_id]["level"] += 1
         
-        self.add_xp(BUILDINGS[building_id].get("tier", 1) * 15)
+        # XP for upgrades: tier * 5 (upgrades are meaningful but less spammable)
+        self.add_xp(BUILDINGS[building_id].get("tier", 1) * 5)
         
         self.last_active = time.time()
         
