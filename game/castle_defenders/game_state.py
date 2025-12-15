@@ -114,7 +114,8 @@ class Enemy:
     """An enemy unit"""
     def __init__(self, enemy_id: str, enemy_type: str, template: dict, 
                  wave: int, start_x: float, start_y: float):
-        wave_multiplier = 1 + (wave - 1) * 0.15
+        # Scale health more aggressively since we have fewer enemies
+        wave_multiplier = 1 + (wave - 1) * 0.20  # 20% per wave instead of 15%
         
         self.id = enemy_id
         self.type = enemy_type
@@ -123,7 +124,8 @@ class Enemy:
         self.health = int(template["health"] * wave_multiplier)
         self.max_health = self.health
         self.speed = template["speed"]
-        self.reward = int(template["reward"] * (1 + wave * 0.1))
+        # Better rewards since enemies are tougher
+        self.reward = int(template["reward"] * (1 + wave * 0.15))
         self.color = template["color"]
         self.size = template["size"]
         self.path_index = 0
@@ -141,12 +143,13 @@ class Enemy:
     
     def to_dict(self) -> dict:
         now = int(time.time() * 1000)
+        # Compact format - only send what's needed for rendering
         return {
             "id": self.id,
             "type": self.type,
-            "x": self.x,
-            "y": self.y,
-            "health": self.health,
+            "x": round(self.x, 1),  # Reduce precision to save bytes
+            "y": round(self.y, 1),
+            "health": int(self.health),
             "maxHealth": self.max_health,
             "color": self.color,
             "size": self.size,
@@ -224,6 +227,10 @@ class Plot:
 class CastleGame:
     """A single game instance"""
     
+    # Performance limits
+    MAX_ENEMIES = 40  # Cap enemies to prevent lag
+    MAX_PROJECTILES = 60  # Cap projectiles
+    
     def __init__(self, game_id: str):
         self.id = game_id
         self.players: Dict[str, GamePlayer] = {}
@@ -241,6 +248,7 @@ class CastleGame:
         self.spawn_timer = 0
         self.plots = self._generate_plots()
         self.path = self._generate_path()
+        self.update_tick = 0  # For throttling expensive operations
     
     def _generate_plots(self) -> List[Plot]:
         """Generate buildable plot positions - carefully placed to avoid the path"""
@@ -323,15 +331,20 @@ class CastleGame:
     def _generate_wave_enemies(self) -> List[dict]:
         """Generate enemy spawn list for current wave"""
         enemies = []
-        base_count = 5 + int(self.wave * 1.5)
+        # Reduced enemy count - more quality, less quantity at higher waves
+        # Starts at 6, caps at 20 base enemies (not counting specials)
+        base_count = min(6 + self.wave, 20)
         
         # Boss wave every 5 waves
         if self.wave % 5 == 0:
             enemies.append({"type": "boss", "delay": 0})
-            for i in range(self.wave // 2):
-                enemies.append({"type": "healer", "delay": 500 + i * 300})
+            # Limit healers with boss to max 3
+            healer_count = min(self.wave // 5, 3)
+            for i in range(healer_count):
+                enemies.append({"type": "healer", "delay": 500 + i * 500})
         
-        # Regular enemies
+        # Regular enemies with longer delays to spread them out
+        spawn_delay = max(300, 600 - self.wave * 20)  # Starts at 600ms, min 300ms
         for i in range(base_count):
             enemy_type = "grunt"
             roll = random.random()
@@ -340,23 +353,24 @@ class CastleGame:
                 enemy_type = "runner"
             if self.wave >= 5 and roll < 0.15:
                 enemy_type = "tank"
-            if self.wave >= 7 and roll < 0.1:
+            if self.wave >= 7 and roll < 0.08:  # Reduced healer spawn rate
                 enemy_type = "healer"
             if self.wave >= 8 and roll < 0.12:
                 enemy_type = "shield"
-            if self.wave >= 10 and roll < 0.25:
+            if self.wave >= 10 and roll < 0.15:
                 enemy_type = "swarm"
-            if self.wave >= 12 and roll < 0.08:
+            if self.wave >= 12 and roll < 0.06:
                 enemy_type = "ghost"
-            if self.wave >= 15 and roll < 0.1:
+            if self.wave >= 15 and roll < 0.08:
                 enemy_type = "berserker"
             
-            enemies.append({"type": enemy_type, "delay": i * 400})
+            enemies.append({"type": enemy_type, "delay": i * spawn_delay})
         
-        # Swarm waves every 7 waves
+        # Swarm waves every 7 waves - reduced count
         if self.wave % 7 == 0 and self.wave > 0:
-            for i in range(20):
-                enemies.append({"type": "swarm", "delay": base_count * 400 + i * 150})
+            swarm_count = min(12, 8 + self.wave // 3)  # Cap at 12
+            for i in range(swarm_count):
+                enemies.append({"type": "swarm", "delay": base_count * spawn_delay + i * 200})
         
         return enemies
     
@@ -508,10 +522,15 @@ class CastleGame:
         
         now = int(time.time() * 1000)
         
-        # Spawn enemies
-        if self.enemies_to_spawn:
+        # Increment update tick for throttling
+        self.update_tick += 1
+        
+        # Spawn enemies (with cap)
+        if self.enemies_to_spawn and len(self.enemies) < self.MAX_ENEMIES:
             self.spawn_timer += delta_time
             while self.enemies_to_spawn and self.spawn_timer >= self.enemies_to_spawn[0]["delay"]:
+                if len(self.enemies) >= self.MAX_ENEMIES:
+                    break  # Wait until enemies die before spawning more
                 to_spawn = self.enemies_to_spawn.pop(0)
                 self._spawn_enemy(to_spawn["type"])
         
@@ -650,7 +669,9 @@ class CastleGame:
                         tower.owner_id,
                         tower_type["color"]
                     )
-                    self.projectiles.append(projectile)
+                    # Only add projectile if under limit
+                    if len(self.projectiles) < self.MAX_PROJECTILES:
+                        self.projectiles.append(projectile)
                     
                     # Special effects
                     if tower.type == "frost":
@@ -759,17 +780,20 @@ class CastleGame:
             if proj in self.projectiles:
                 self.projectiles.remove(proj)
         
-        # Healer enemies heal nearby
-        for enemy in self.enemies:
-            if enemy.heals:
-                for other in self.enemies:
-                    if other.id == enemy.id:
-                        continue
-                    dx = other.x - enemy.x
-                    dy = other.y - enemy.y
-                    dist = math.sqrt(dx * dx + dy * dy)
-                    if dist < 80:
-                        other.health = min(other.max_health, other.health + 0.5 * (delta_time / 16))
+        # Healer enemies heal nearby (throttled - only every 5 ticks for performance)
+        if self.update_tick % 5 == 0:
+            healers = [e for e in self.enemies if e.heals]
+            if healers:
+                for healer in healers:
+                    for other in self.enemies:
+                        if other.id == healer.id:
+                            continue
+                        dx = other.x - healer.x
+                        dy = other.y - healer.y
+                        # Use squared distance to avoid sqrt
+                        dist_sq = dx * dx + dy * dy
+                        if dist_sq < 6400:  # 80^2
+                            other.health = min(other.max_health, other.health + 2.5)
         
         # Update troops
         troops_to_remove = []
@@ -850,6 +874,11 @@ class CastleGame:
     
     def get_state(self) -> dict:
         """Get full game state for clients"""
+        # Limit data sent for performance
+        # Only send first MAX_ENEMIES enemies and MAX_PROJECTILES projectiles
+        enemies_to_send = self.enemies[:self.MAX_ENEMIES]
+        projectiles_to_send = self.projectiles[:self.MAX_PROJECTILES]
+        
         return {
             "id": self.id,
             "wave": self.wave,
@@ -857,6 +886,7 @@ class CastleGame:
             "maxCastleHealth": self.max_castle_health,
             "state": self.state,
             "waveInProgress": self.wave_in_progress,
+            "enemiesQueued": len(self.enemies_to_spawn),  # How many more to spawn
             "players": [
                 {
                     "id": p.id,
@@ -868,8 +898,8 @@ class CastleGame:
                 for p in self.players.values()
             ],
             "towers": [t.to_dict() for t in self.towers],
-            "enemies": [e.to_dict() for e in self.enemies],
-            "projectiles": [p.to_dict() for p in self.projectiles],
+            "enemies": [e.to_dict() for e in enemies_to_send],
+            "projectiles": [p.to_dict() for p in projectiles_to_send],
             "troops": [t.to_dict() for t in self.troops],
             "plots": [p.to_dict() for p in self.plots],
             "path": self.path
