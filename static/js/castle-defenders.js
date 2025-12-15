@@ -2336,13 +2336,83 @@ socket.on('cd:gameState', (state) => {
 });
 
 socket.on('cd:towerPlaced', (data) => {
-  addChatMessage('System', `Tower placed!`);
+  // Add the new tower to the game state
+  if (gameState && data.tower) {
+    // Add tower to towers array
+    if (!gameState.towers) {
+      gameState.towers = [];
+    }
+    gameState.towers.push(data.tower);
+    
+    // Update the plot to mark it as occupied
+    const plot = gameState.plots?.find(p => p.id === data.tower.plotId);
+    if (plot) {
+      plot.tower = data.tower.id;
+      plot.owner = data.playerId;
+    }
+    
+    // Update player's gold if this was our tower
+    if (data.playerId === playerId && data.playerGold !== undefined) {
+      const playerData = gameState.players?.find(p => p.id === playerId);
+      if (playerData) {
+        playerData.gold = data.playerGold;
+      }
+    }
+    
+    // Deselect tower after placing (only for the player who placed it)
+    if (data.playerId === playerId) {
+      selectedTower = null;
+      selectedPlot = null;
+    }
+    
+    // Update UI
+    updateTowerPanel();
+    renderTowerButtons();
+    updateGameUI();
+    
+    const towerType = towerTypes[data.tower.type];
+    const towerName = towerType?.name || data.tower.type;
+    
+    if (data.playerId === playerId) {
+      addChatMessage('System', `🗼 ${towerName} placed! (-${towerType?.cost || 0}g)`);
+    } else {
+      // Another player placed a tower
+      const ownerName = data.tower.ownerName || 'A player';
+      addChatMessage('System', `🗼 ${ownerName} placed a ${towerName}!`);
+    }
+  }
 });
 
 socket.on('cd:towerSold', (data) => {
-  addChatMessage('System', `Tower sold for ${data.refund} gold.`);
+  // Remove tower from game state
+  if (gameState) {
+    // Find the plot and get tower id
+    const plot = gameState.plots?.find(p => p.id === data.plotId);
+    if (plot && plot.tower) {
+      // Remove tower from towers array
+      gameState.towers = gameState.towers?.filter(t => t.id !== plot.tower) || [];
+      // Clear the plot
+      plot.tower = null;
+      plot.owner = null;
+    }
+    
+    // Update player's gold if this was our sale
+    if (data.playerId === playerId && data.playerGold !== undefined) {
+      const playerData = gameState.players?.find(p => p.id === playerId);
+      if (playerData) {
+        playerData.gold = data.playerGold;
+      }
+    }
+  }
+  
   selectedPlot = null;
   updateTowerPanel();
+  renderTowerButtons();
+  updateGameUI();
+  
+  if (data.playerId === playerId) {
+    addChatMessage('System', `💰 Tower sold for ${data.refund} gold!`);
+  }
 });
 
 socket.on('cd:towerUpgraded', (data) => {
