@@ -28,6 +28,14 @@ class GamePlayer:
 
 class Tower:
     """A placed tower"""
+    # Upgrade costs scale with level
+    UPGRADE_COSTS = {
+        "damage": [50, 75, 100, 150, 200],  # Cost for each damage level (1->2, 2->3, etc.)
+        "range": [40, 60, 80, 120, 160],     # Cost for each range level
+        "speed": [60, 90, 120, 180, 240]     # Cost for each speed level
+    }
+    MAX_UPGRADE_LEVEL = 5
+    
     def __init__(self, tower_id: str, tower_type: str, x: float, y: float, 
                  plot_id: int, owner_id: str, owner_name: str):
         self.id = tower_id
@@ -39,6 +47,47 @@ class Tower:
         self.owner_name = owner_name
         self.last_fired = 0
         self.level = 1
+        
+        # Individual upgrade levels
+        self.damage_level = 1
+        self.range_level = 1
+        self.speed_level = 1
+    
+    def get_upgrade_cost(self, upgrade_type: str) -> int:
+        """Get cost to upgrade this tower"""
+        current_level = getattr(self, f"{upgrade_type}_level", 1)
+        if current_level >= self.MAX_UPGRADE_LEVEL:
+            return 0
+        return self.UPGRADE_COSTS[upgrade_type][current_level - 1]
+    
+    def can_upgrade(self, upgrade_type: str) -> bool:
+        """Check if tower can be upgraded"""
+        current_level = getattr(self, f"{upgrade_type}_level", 1)
+        return current_level < self.MAX_UPGRADE_LEVEL
+    
+    def upgrade(self, upgrade_type: str) -> bool:
+        """Upgrade the tower, returns True if successful"""
+        if not self.can_upgrade(upgrade_type):
+            return False
+        current_level = getattr(self, f"{upgrade_type}_level", 1)
+        setattr(self, f"{upgrade_type}_level", current_level + 1)
+        self.level = max(self.damage_level, self.range_level, self.speed_level)
+        return True
+    
+    def get_effective_damage(self, base_damage: float) -> float:
+        """Get damage with upgrades applied"""
+        # Each level adds 20% damage
+        return base_damage * (1 + (self.damage_level - 1) * 0.2)
+    
+    def get_effective_range(self, base_range: float) -> float:
+        """Get range with upgrades applied"""
+        # Each level adds 15% range
+        return base_range * (1 + (self.range_level - 1) * 0.15)
+    
+    def get_effective_fire_rate(self, base_rate: float) -> float:
+        """Get fire rate with upgrades applied (lower is faster)"""
+        # Each level reduces fire rate by 10%
+        return base_rate * (1 - (self.speed_level - 1) * 0.1)
     
     def to_dict(self) -> dict:
         return {
@@ -49,7 +98,15 @@ class Tower:
             "plotId": self.plot_id,
             "ownerId": self.owner_id,
             "ownerName": self.owner_name,
-            "level": self.level
+            "level": self.level,
+            "damageLevel": self.damage_level,
+            "rangeLevel": self.range_level,
+            "speedLevel": self.speed_level,
+            "upgradeCosts": {
+                "damage": self.get_upgrade_cost("damage") if self.can_upgrade("damage") else None,
+                "range": self.get_upgrade_cost("range") if self.can_upgrade("range") else None,
+                "speed": self.get_upgrade_cost("speed") if self.can_upgrade("speed") else None
+            }
         }
 
 
@@ -404,6 +461,46 @@ class CastleGame:
         
         return {"success": True, "refund": refund}
     
+    def upgrade_tower(self, socket_id: str, tower_id: str, upgrade_type: str) -> dict:
+        """Upgrade a tower's damage, range, or speed"""
+        player = self.players.get(socket_id)
+        if not player:
+            return {"success": False, "error": "Player not found"}
+        
+        # Find the tower
+        tower = next((t for t in self.towers if t.id == tower_id), None)
+        if not tower:
+            return {"success": False, "error": "Tower not found"}
+        
+        # Check ownership
+        if tower.owner_id != socket_id:
+            return {"success": False, "error": "Not your tower"}
+        
+        # Check valid upgrade type
+        if upgrade_type not in ["damage", "range", "speed"]:
+            return {"success": False, "error": "Invalid upgrade type"}
+        
+        # Check if can upgrade
+        if not tower.can_upgrade(upgrade_type):
+            return {"success": False, "error": "Tower already at max level for this upgrade"}
+        
+        # Check cost
+        cost = tower.get_upgrade_cost(upgrade_type)
+        if player.gold < cost:
+            return {"success": False, "error": f"Not enough gold (need {cost})"}
+        
+        # Perform upgrade
+        player.gold -= cost
+        tower.upgrade(upgrade_type)
+        new_level = getattr(tower, f"{upgrade_type}_level")
+        
+        return {
+            "success": True, 
+            "tower": tower,
+            "newLevel": new_level,
+            "cost": cost
+        }
+    
     def update(self, delta_time: float):
         """Main game update loop"""
         if self.state != "playing":
@@ -477,9 +574,14 @@ class CastleGame:
             if not tower_type:
                 continue
             
-            effective_fire_rate = tower_type["fireRate"] / owner.stats["towerSpeedMultiplier"]
-            effective_range = tower_type["range"] * owner.stats["towerRangeMultiplier"]
-            effective_damage = tower_type["damage"] * owner.stats["towerDamageMultiplier"]
+            # Apply tower upgrades first, then player bonuses
+            base_fire_rate = tower.get_effective_fire_rate(tower_type["fireRate"])
+            base_range = tower.get_effective_range(tower_type["range"])
+            base_damage = tower.get_effective_damage(tower_type["damage"])
+            
+            effective_fire_rate = base_fire_rate / owner.stats["towerSpeedMultiplier"]
+            effective_range = base_range * owner.stats["towerRangeMultiplier"]
+            effective_damage = base_damage * owner.stats["towerDamageMultiplier"]
             
             # Gold mine generates income
             if tower.type == "goldmine":
@@ -781,11 +883,14 @@ class CastleGameManager:
         self.games: Dict[str, CastleGame] = {}
     
     def find_or_create_game(self) -> CastleGame:
-        """Find a waiting game or create a new one"""
-        # Find a waiting game with space
+        """Find a joinable game or create a new one"""
+        # Find a game that can accept more players
+        # Allow joining games in waiting state or early waves (wave 1-5)
         for game in self.games.values():
-            if game.state == "waiting" and len(game.players) < 8:
-                return game
+            if len(game.players) < 8:
+                # Can join if waiting or in early waves
+                if game.state == "waiting" or (game.state == "playing" and game.wave <= 5):
+                    return game
         
         # Create new game
         game_id = str(uuid.uuid4())[:8]
