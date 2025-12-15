@@ -1094,3 +1094,134 @@ body {
     padding: 1rem;
   }
 }
+
+/* Tower Upgrade Panel */
+.tower-upgrade-panel {
+  background: linear-gradient(135deg, rgba(30, 30, 40, 0.95) 0%, rgba(20, 20, 30, 0.95) 100%);
+  border: 2px solid var(--gold);
+  border-radius: 8px;
+  padding: 1rem;
+  margin-top: 0.75rem;
+}
+
+.tower-upgrade-panel.hidden {
+  display: none;
+}
+
+.tower-upgrade-panel h4 {
+  font-family: 'Cinzel', serif;
+  font-size: 0.9rem;
+  color: var(--gold);
+  text-align: center;
+  margin-bottom: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.upgrade-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.upgrade-btn {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 0.8rem;
+  background: linear-gradient(135deg, #2a2a3a 0%, #1a1a2a 100%);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.upgrade-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #3a3a4a 0%, #2a2a3a 100%);
+  border-color: var(--gold);
+  transform: translateX(3px);
+}
+
+.upgrade-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.upgrade-btn.maxed {
+  background: linear-gradient(135deg, #1a3a1a 0%, #0a2a0a 100%);
+  border-color: #4a8a4a;
+}
+
+.upgrade-btn.affordable {
+  border-color: #4aff4a;
+  box-shadow: 0 0 8px rgba(74, 255, 74, 0.3);
+}
+
+.upgrade-icon {
+  font-size: 1.2rem;
+}
+
+.upgrade-name {
+  font-family: 'Cinzel', serif;
+  font-size: 0.85rem;
+  color: var(--text);
+}
+
+.upgrade-level {
+  font-size: 0.75rem;
+  color: var(--gold);
+  background: rgba(212, 168, 75, 0.2);
+  padding: 0.15rem 0.4rem;
+  border-radius: 3px;
+}
+
+.upgrade-cost {
+  font-size: 0.8rem;
+  color: #ffd700;
+  font-weight: bold;
+}
+
+/* Player List */
+#player-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  max-height: 120px;
+  overflow-y: auto;
+  padding: 0.5rem;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 6px;
+  margin-bottom: 0.5rem;
+}
+
+.player-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.3rem 0.5rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+  font-size: 0.8rem;
+}
+
+.player-item.self {
+  background: rgba(212, 168, 75, 0.2);
+  border: 1px solid var(--gold);
+}
+
+.player-item .player-name {
+  flex: 1;
+  color: var(--text);
+}
+
+.player-item .player-level {
+  color: var(--gold);
+  font-size: 0.7rem;
+}
+
+.player-item .player-gold {
+  color: #ffd700;
+  font-size: 0.7rem;
+}
