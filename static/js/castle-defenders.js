@@ -12,6 +12,7 @@ let towerTypes = {};
 let perks = {};
 let unlockedTowers = {};
 let xpForNextLevel = 100;
+let myGold = 0;  // Track current player's gold directly
 
 // Canvas
 let canvas, ctx;
@@ -351,8 +352,8 @@ function showUpgradePanel(tower) {
   
   panel.classList.remove('hidden');
   
-  const player = gameState?.players?.find(p => p.id === playerId);
-  const playerGold = player?.gold || 0;
+  // Use myGold which is kept in sync
+  const playerGold = myGold;
   
   const upgradeTypes = ['damage', 'range', 'speed'];
   upgradeTypes.forEach(type => {
@@ -377,8 +378,8 @@ function renderTowerButtons() {
   const container = document.getElementById('tower-buttons');
   container.innerHTML = '';
   
-  const player = gameState?.players?.find(p => p.id === playerId);
-  const playerGold = player?.gold || 0;
+  // Use myGold which is kept in sync
+  const playerGold = myGold;
   
   const towerIcons = {
     cannon: '💣',
@@ -547,15 +548,14 @@ function updateGameUI() {
   // Wave
   document.getElementById('wave-number').textContent = gameState.wave;
   
-  // Player resources
-  const player = gameState.players.find(p => p.id === playerId);
-  if (player) {
-    document.getElementById('player-gold').textContent = Math.floor(player.gold);
-    document.getElementById('player-score').textContent = player.score;
-    
-    // Only re-render tower buttons if gold changed significantly
-    if (Math.floor(player.gold) !== Math.floor(lastPlayerGold)) {
-      lastPlayerGold = player.gold;
+  // Player resources - use myGold which is kept in sync
+  const player = gameState.players?.find(p => p.id === playerId);
+  document.getElementById('player-gold').textContent = Math.floor(myGold);
+  document.getElementById('player-score').textContent = player?.score || 0;
+  
+  // Only re-render tower buttons if gold changed significantly
+  if (Math.floor(myGold) !== Math.floor(lastPlayerGold)) {
+    lastPlayerGold = myGold;
       renderTowerButtons();
     }
   }
@@ -2272,6 +2272,10 @@ socket.on('cd:gameJoined', (data) => {
   playerId = data.playerId;
   gameState = data.state;
   
+  // Initialize player's gold from the game state
+  const myPlayerData = gameState.players?.find(p => p.id === playerId);
+  myGold = myPlayerData?.gold || 200;
+  
   // Hide open games panel if visible
   document.getElementById('open-games-panel').classList.add('hidden');
   
@@ -2284,7 +2288,7 @@ socket.on('cd:gameJoined', (data) => {
   backgroundCanvas = null;
   
   // Reset tracked gold and selected states
-  lastPlayerGold = 0;
+  lastPlayerGold = myGold;
   selectedPlot = null;
   selectedTower = null;
   
@@ -2310,6 +2314,7 @@ socket.on('cd:gameJoined', (data) => {
     }
   }
   
+  addChatMessage('System', `💰 Starting gold: ${myGold}g`);
   addChatMessage('System', '💡 Click a tower from the right panel, then click an empty plot to build!');
   addChatMessage('System', '⚔️ Click "Start Wave" when ready to begin!');
 });
@@ -2332,6 +2337,13 @@ socket.on('cd:waveStarted', (data) => {
 
 socket.on('cd:gameState', (state) => {
   gameState = state;
+  
+  // Sync myGold from server state
+  const myPlayerData = gameState.players?.find(p => p.id === playerId);
+  if (myPlayerData) {
+    myGold = myPlayerData.gold;
+  }
+  
   updateGameUI();
 });
 
@@ -2353,6 +2365,7 @@ socket.on('cd:towerPlaced', (data) => {
     
     // Update player's gold if this was our tower
     if (data.playerId === playerId && data.playerGold !== undefined) {
+      myGold = data.playerGold;
       const playerData = gameState.players?.find(p => p.id === playerId);
       if (playerData) {
         playerData.gold = data.playerGold;
@@ -2398,6 +2411,7 @@ socket.on('cd:towerSold', (data) => {
     
     // Update player's gold if this was our sale
     if (data.playerId === playerId && data.playerGold !== undefined) {
+      myGold = data.playerGold;
       const playerData = gameState.players?.find(p => p.id === playerId);
       if (playerData) {
         playerData.gold = data.playerGold;
@@ -2424,8 +2438,20 @@ socket.on('cd:towerUpgraded', (data) => {
     }
   }
   
+  // Update player's gold if this was our upgrade
+  if (data.playerId === playerId && data.playerGold !== undefined) {
+    myGold = data.playerGold;
+    const playerData = gameState?.players?.find(p => p.id === playerId);
+    if (playerData) {
+      playerData.gold = data.playerGold;
+    }
+  }
+  
   const upgradeNames = { damage: 'Damage', range: 'Range', speed: 'Speed' };
-  addChatMessage('System', `🔧 Tower ${upgradeNames[data.upgradeType]} upgraded to level ${data.newLevel}! (-${data.cost}g)`);
+  
+  if (data.playerId === playerId) {
+    addChatMessage('System', `🔧 Tower ${upgradeNames[data.upgradeType]} upgraded to level ${data.newLevel}! (-${data.cost}g)`);
+  }
   
   // Refresh upgrade panel if this tower is selected
   if (selectedPlot && selectedPlot.tower === data.tower.id) {
@@ -2433,6 +2459,8 @@ socket.on('cd:towerUpgraded', (data) => {
   }
   
   updateTowerPanel();
+  renderTowerButtons();
+  updateGameUI();
 });
 
 socket.on('cd:playerList', (data) => {
