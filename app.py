@@ -586,9 +586,12 @@ def handle_cd_join_game():
     game_player = game.add_player(request.sid, player)
     cd_socket_to_game[request.sid] = game.id
     
-    # Start game if in waiting state
-    if game.state == 'waiting':
-        game.state = 'playing'
+    # Join the socket to the game room for broadcasts
+    from flask_socketio import join_room
+    join_room(game.id)
+    
+    # Don't auto-start - let players join first, game starts when first wave is triggered
+    # Game state stays as 'waiting' or 'playing' to allow more players to join
     
     emit('cd:gameJoined', {
         'gameId': game.id,
@@ -596,14 +599,17 @@ def handle_cd_join_game():
         'playerId': request.sid
     })
     
-    # Notify others
-    for other_id in game.players:
-        if other_id != request.sid:
-            socketio.emit('cd:playerJoined', {
-                'playerId': request.sid,
-                'playerName': player.name,
-                'playerLevel': player.level
-            }, room=other_id)
+    # Notify all players in the game (including the new one) about all current players
+    player_list = []
+    for pid, p in game.players.items():
+        player_list.append({
+            'playerId': pid,
+            'playerName': p.profile.name,
+            'playerLevel': p.profile.level,
+            'gold': p.gold
+        })
+    
+    socketio.emit('cd:playerList', {'players': player_list}, room=game.id)
 
 
 @socketio.on('cd:startWave')
@@ -680,12 +686,43 @@ def handle_cd_sell_tower(data):
     result = game.sell_tower(request.sid, data.get('plotId'))
     
     if result['success']:
-        for player_id in game.players:
-            socketio.emit('cd:towerSold', {
-                'plotId': data.get('plotId'),
-                'playerId': request.sid,
-                'refund': result['refund']
-            }, room=player_id)
+        socketio.emit('cd:towerSold', {
+            'plotId': data.get('plotId'),
+            'playerId': request.sid,
+            'refund': result['refund']
+        }, room=game.id)
+    else:
+        emit('cd:actionFailed', {'error': result['error']})
+
+
+@socketio.on('cd:upgradeTower')
+def handle_cd_upgrade_tower(data):
+    """Upgrade a tower in Castle Defenders"""
+    from flask import request
+    
+    game_id = cd_socket_to_game.get(request.sid)
+    if not game_id:
+        emit('cd:actionFailed', {'error': 'Not in a game'})
+        return
+    
+    game = cd_game_manager.get_game(game_id)
+    if not game:
+        emit('cd:actionFailed', {'error': 'Game not found'})
+        return
+    
+    tower_id = data.get('towerId')
+    upgrade_type = data.get('upgradeType')  # 'damage', 'range', or 'speed'
+    
+    result = game.upgrade_tower(request.sid, tower_id, upgrade_type)
+    
+    if result['success']:
+        socketio.emit('cd:towerUpgraded', {
+            'tower': result['tower'].to_dict(),
+            'playerId': request.sid,
+            'upgradeType': upgrade_type,
+            'newLevel': result['newLevel'],
+            'cost': result['cost']
+        }, room=game.id)
     else:
         emit('cd:actionFailed', {'error': result['error']})
 
