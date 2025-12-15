@@ -557,19 +557,30 @@ def handle_pollution_cleanup():
 def handle_cd_login(data):
     """Castle Defenders player login"""
     from flask import request
-    player_id = data.get('playerId')
-    player_name = data.get('playerName', 'Hero')
-    
-    player = cd_player_manager.get_or_create_player(player_id, player_name)
-    cd_player_manager.connect_player(request.sid, player_id)
-    
-    emit('cd:loginSuccess', {
-        'profile': player.to_dict(),
-        'towerTypes': TOWER_TYPES,
-        'perks': PERKS,
-        'unlockedTowers': get_unlocked_towers(player.level),
-        'xpForNextLevel': xp_for_level(player.level + 1)
-    })
+    try:
+        player_id = data.get('playerId')
+        player_name = data.get('playerName', 'Hero')
+        
+        if not player_id:
+            emit('cd:error', {'message': 'No player ID provided'})
+            return
+        
+        player = cd_player_manager.get_or_create_player(player_id, player_name)
+        cd_player_manager.connect_player(request.sid, player_id)
+        
+        emit('cd:loginSuccess', {
+            'profile': player.to_dict(),
+            'towerTypes': TOWER_TYPES,
+            'perks': PERKS,
+            'unlockedTowers': get_unlocked_towers(player.level),
+            'xpForNextLevel': xp_for_level(player.level + 1)
+        })
+        print(f"Castle Defenders login successful: {player_name} ({player_id})")
+    except Exception as e:
+        print(f"Castle Defenders login error: {e}")
+        import traceback
+        traceback.print_exc()
+        emit('cd:error', {'message': f'Login failed: {str(e)}'})
 
 
 @socketio.on('cd:joinGame')
