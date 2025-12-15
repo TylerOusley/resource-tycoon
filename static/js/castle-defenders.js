@@ -609,18 +609,35 @@ function updateGameUI() {
     renderTowerButtons();
   }
   
-  // Players list
+  // Players list (footer)
   const playersList = document.getElementById('players-list');
   playersList.innerHTML = '';
   for (const p of gameState.players) {
     const tag = document.createElement('div');
     tag.className = 'player-tag';
+    // For current player, use myGold (most up-to-date), for others use server state
+    const displayGold = p.id === playerId ? myGold : p.gold;
     tag.innerHTML = `
       <div class="player-level-badge">${p.level}</div>
       <span>${p.name}</span>
-      <span style="color: var(--gold)">💰${Math.floor(p.gold)}</span>
+      <span style="color: var(--gold)">💰${Math.floor(displayGold)}</span>
     `;
     playersList.appendChild(tag);
+  }
+  
+  // Also update the tower panel player list (keep in sync)
+  const playerListEl = document.getElementById('player-list');
+  if (playerListEl) {
+    playerListEl.innerHTML = gameState.players.map(p => {
+      const displayGold = p.id === playerId ? myGold : p.gold;
+      return `
+        <div class="player-item ${p.id === playerId ? 'self' : ''}">
+          <span class="player-name">${p.name}</span>
+          <span class="player-level">Lv.${p.level}</span>
+          <span class="player-gold">${Math.floor(displayGold)}g</span>
+        </div>
+      `;
+    }).join('');
   }
   
   // Wave button
@@ -1293,10 +1310,14 @@ function render() {
     if (tower) {
       const towerType = towerTypes[tower.type];
       if (towerType && towerType.range > 0) {
+        // Calculate effective range with upgrades (15% per level)
+        const rangeLevel = tower.rangeLevel || 1;
+        const effectiveRange = towerType.range * (1 + (rangeLevel - 1) * 0.15);
+        
         ctx.strokeStyle = 'rgba(212, 168, 75, 0.3)';
         ctx.lineWidth = 2;
         ctx.beginPath();
-        ctx.arc(tower.x, tower.y, towerType.range, 0, Math.PI * 2);
+        ctx.arc(tower.x, tower.y, effectiveRange, 0, Math.PI * 2);
         ctx.stroke();
         
         ctx.fillStyle = 'rgba(212, 168, 75, 0.1)';
@@ -2639,7 +2660,7 @@ socket.on('cd:chat', (data) => {
 });
 
 socket.on('cd:gameEnded', (data) => {
-  document.getElementById('final-wave').textContent = data.wave;
+  document.getElementById('final-wave').textContent = data.wave || gameState?.wave || 0;
   
   const resultsList = document.getElementById('results-list');
   resultsList.innerHTML = '';
@@ -2666,8 +2687,128 @@ socket.on('cd:gameEnded', (data) => {
     }
   }
   
+  // Clear end vote state
+  endGameVotes = {};
+  hasVotedToEnd = false;
+  updateEndVoteUI();
+  
   openModal('gameover-modal');
 });
+
+// Gold sending between players
+socket.on('cd:goldSent', (data) => {
+  // Update local gold if we're the sender or receiver
+  if (data.senderId === playerId) {
+    myGold = data.senderGold;
+    addChatMessage('System', `You sent ${data.amount}g to ${data.targetName}`);
+  } else if (data.targetId === playerId) {
+    myGold = data.targetGold;
+    addChatMessage('System', `${data.senderName} sent you ${data.amount}g!`);
+  } else {
+    addChatMessage('System', `${data.senderName} sent ${data.amount}g to ${data.targetName}`);
+  }
+  updateGameUI();
+});
+
+// End game voting
+let endGameVotes = {};
+let hasVotedToEnd = false;
+
+socket.on('cd:endGameVote', (data) => {
+  endGameVotes[data.voterId] = data.voted;
+  
+  if (data.voterId === playerId) {
+    hasVotedToEnd = data.voted;
+  }
+  
+  addChatMessage('System', `📊 End game vote: ${data.votes}/${data.required} (${data.voterName} ${data.voted ? 'voted to end' : 'cancelled vote'})`);
+  updateEndVoteUI();
+  
+  if (data.allVoted) {
+    addChatMessage('System', '🏁 All players voted - Game ending...');
+  }
+});
+
+function updateEndVoteUI() {
+  const endBtn = document.getElementById('end-game-btn');
+  if (endBtn) {
+    const voteCount = Object.values(endGameVotes).filter(v => v).length;
+    const totalPlayers = gameState?.players?.length || 1;
+    
+    if (hasVotedToEnd) {
+      endBtn.textContent = `Cancel Vote (${voteCount}/${totalPlayers})`;
+      endBtn.classList.add('voted');
+    } else {
+      endBtn.textContent = `End Game (${voteCount}/${totalPlayers})`;
+      endBtn.classList.remove('voted');
+    }
+  }
+}
+
+function sendGold(targetId, amount) {
+  if (!targetId || !amount || amount <= 0) return;
+  socket.emit('cd:sendGold', { targetId, amount: parseInt(amount) });
+}
+
+function voteEndGame() {
+  hasVotedToEnd = !hasVotedToEnd;
+  socket.emit('cd:voteEndGame', { vote: hasVotedToEnd });
+}
+
+function openSendGoldModal() {
+  const select = document.getElementById('send-gold-target');
+  select.innerHTML = '<option value="">-- Select a player --</option>';
+  
+  // Populate with other players
+  if (gameState?.players) {
+    for (const p of gameState.players) {
+      if (p.id !== playerId) {
+        const option = document.createElement('option');
+        option.value = p.id;
+        option.textContent = `${p.name} (Lv.${p.level})`;
+        select.appendChild(option);
+      }
+    }
+  }
+  
+  // Update current gold display
+  document.getElementById('send-gold-current').textContent = Math.floor(myGold);
+  document.getElementById('send-gold-amount').value = '';
+  
+  openModal('send-gold-modal');
+}
+
+function setGoldAmount(amount) {
+  const input = document.getElementById('send-gold-amount');
+  if (amount === 'all') {
+    input.value = Math.floor(myGold);
+  } else {
+    input.value = amount;
+  }
+}
+
+function confirmSendGold() {
+  const targetId = document.getElementById('send-gold-target').value;
+  const amount = parseInt(document.getElementById('send-gold-amount').value);
+  
+  if (!targetId) {
+    addChatMessage('System', '⚠️ Please select a player');
+    return;
+  }
+  
+  if (!amount || amount <= 0) {
+    addChatMessage('System', '⚠️ Please enter a valid amount');
+    return;
+  }
+  
+  if (amount > myGold) {
+    addChatMessage('System', '⚠️ Not enough gold');
+    return;
+  }
+  
+  sendGold(targetId, amount);
+  closeModal('send-gold-modal');
+}
 
 socket.on('disconnect', () => {
   console.log('Disconnected from server');
