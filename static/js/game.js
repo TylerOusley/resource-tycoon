@@ -1026,25 +1026,75 @@ class ResourceTycoon {
     }
     
     calculateMaxAffordable(building) {
-        let maxByMoney = Math.floor(this.player.money / building.cost);
+        const currentCount = this.player.buildings?.[building.id]?.count || 0;
+        let maxAffordable = 0;
+        let totalMoneyNeeded = 0;
+        const totalResourcesNeeded = {};
         
-        // Check resource costs
-        for (const [resId, amount] of Object.entries(building.cost_resources || {})) {
-            const owned = this.player.resources?.[resId] || 0;
-            const maxByRes = Math.floor(owned / amount);
-            maxByMoney = Math.min(maxByMoney, maxByRes);
+        // Calculate how many we can actually afford with scaling costs
+        for (let i = 0; i < 10000; i++) { // Safety limit
+            const cost = this.getBuildingCost(building, currentCount + i);
+            
+            // Check money
+            if (totalMoneyNeeded + cost.money > this.player.money) break;
+            
+            // Check resources
+            let canAfford = true;
+            for (const [resId, resAmount] of Object.entries(cost.resources)) {
+                const needed = (totalResourcesNeeded[resId] || 0) + resAmount;
+                const owned = this.player.resources?.[resId] || 0;
+                if (needed > owned) {
+                    canAfford = false;
+                    break;
+                }
+            }
+            
+            if (!canAfford) break;
+            
+            // We can afford this one
+            maxAffordable++;
+            totalMoneyNeeded += cost.money;
+            for (const [resId, resAmount] of Object.entries(cost.resources)) {
+                totalResourcesNeeded[resId] = (totalResourcesNeeded[resId] || 0) + resAmount;
+            }
         }
         
-        return Math.max(0, maxByMoney);
+        return maxAffordable;
     }
     
-    formatBulkCost(building, amount) {
+    getBuildingCost(building, countOwned) {
+        // Cost scaling: 8% increase per building owned for money, 5% for resources
+        const moneyScale = Math.pow(1.08, countOwned);
+        const resourceScale = Math.pow(1.05, countOwned);
+        
+        const scaledMoney = Math.floor(building.cost * moneyScale);
+        const scaledResources = {};
+        for (const [resId, amount] of Object.entries(building.cost_resources || {})) {
+            scaledResources[resId] = Math.floor(amount * resourceScale);
+        }
+        
+        return { money: scaledMoney, resources: scaledResources };
+    }
+    
+    formatBulkCost(building, amount, startCount = 0) {
         if (amount <= 0) return 'N/A';
         
-        let parts = [`$${this.formatNumber(building.cost * amount)}`];
-        for (const [resId, resAmount] of Object.entries(building.cost_resources || {})) {
+        // Calculate total cost with scaling
+        let totalMoney = 0;
+        const totalResources = {};
+        
+        for (let i = 0; i < amount; i++) {
+            const cost = this.getBuildingCost(building, startCount + i);
+            totalMoney += cost.money;
+            for (const [resId, resAmount] of Object.entries(cost.resources)) {
+                totalResources[resId] = (totalResources[resId] || 0) + resAmount;
+            }
+        }
+        
+        let parts = [`$${this.formatNumber(totalMoney)}`];
+        for (const [resId, resAmount] of Object.entries(totalResources)) {
             const res = this.resources[resId];
-            parts.push(`${resAmount * amount} ${res?.icon || resId}`);
+            parts.push(`${this.formatNumber(resAmount)} ${res?.icon || resId}`);
         }
         return parts.join(' + ');
     }
@@ -1409,12 +1459,17 @@ class ResourceTycoon {
             const maxAffordable = this.calculateMaxAffordable(building);
             
             // Build cost string for buying one
-            let buyCostParts = [`$${this.formatNumber(building.cost)}`];
-            for (const [resId, amount] of Object.entries(building.cost_resources || {})) {
+            // Get scaled cost for next building
+            const nextCost = this.getBuildingCost(building, state.count);
+            let buyCostParts = [`$${this.formatNumber(nextCost.money)}`];
+            for (const [resId, amount] of Object.entries(nextCost.resources)) {
                 const res = this.resources[resId];
                 buyCostParts.push(`${amount} ${res?.icon || resId}`);
             }
             const buyCostStr = buyCostParts.join(' + ');
+            
+            const buyAmount = this.buyAmount === 'max' ? maxAffordable : this.buyAmount;
+            const bulkCostStr = this.formatBulkCost(building, buyAmount, state.count);
             
             actionsHtml = `
                 <div class="building-level">Level ${state.level}/${building.max_level} (x${state.count})</div>
@@ -1427,9 +1482,9 @@ class ResourceTycoon {
                         <button class="btn btn-tiny ${this.buyAmount === 'max' ? 'active' : ''}" onclick="game.setBuyAmount('max')">MAX</button>
                     </div>
                     <div class="building-actions">
-                        <button class="btn btn-small btn-secondary" onclick="game.buyBuilding('${building.id}')" title="Cost per building: ${buyCostStr}">
+                        <button class="btn btn-small btn-secondary" onclick="game.buyBuilding('${building.id}')" title="Next building cost: ${buyCostStr}">
                             Buy ${this.buyAmount === 'max' ? `x${maxAffordable}` : `x${this.buyAmount}`} 
-                            (${this.formatBulkCost(building, this.buyAmount === 'max' ? maxAffordable : this.buyAmount)})
+                            (${bulkCostStr})
                         </button>
                         ${canUpgrade ? `
                             <button class="btn btn-small btn-primary" onclick="game.upgradeBuilding('${building.id}')">
@@ -1440,8 +1495,10 @@ class ResourceTycoon {
                 </div>
             `;
         } else if (!locked) {
-            let costHtml = `$${this.formatNumber(building.cost)}`;
-            for (const [resId, amount] of Object.entries(building.cost_resources || {})) {
+            // First building cost (count = 0, so base cost)
+            const firstCost = this.getBuildingCost(building, 0);
+            let costHtml = `$${this.formatNumber(firstCost.money)}`;
+            for (const [resId, amount] of Object.entries(firstCost.resources)) {
                 const res = this.resources[resId];
                 costHtml += ` + ${amount} ${res?.icon || resId}`;
             }
