@@ -1,11 +1,12 @@
 """
 Game Portal - Main Application
-Multi-game server with Resource Tycoon and Castle Defenders
+Multi-game server with Resource Tycoon, Castle Defenders, and Settlers
 """
 
+import os
 import time
 import threading
-from flask import Flask, render_template, send_from_directory
+from flask import Flask, render_template, send_from_directory, redirect
 from flask_socketio import SocketIO, emit
 
 # Resource Tycoon imports
@@ -77,6 +78,24 @@ def game_redirect():
 def castle_defenders():
     """Serve the Castle Defenders game"""
     return render_template('castle-defenders.html')
+
+
+@app.route('/settlers')
+def settlers_redirect():
+    """Redirect to Settlers with trailing slash so asset paths resolve."""
+    return redirect('/settlers/')
+
+
+@app.route('/settlers/')
+def settlers_index():
+    """Serve the Settlers of Catan game (static SPA)."""
+    return send_from_directory(os.path.join(app.static_folder, 'settlers'), 'index.html')
+
+
+@app.route('/settlers/<path:path>')
+def settlers_files(path):
+    """Static assets for Settlers (css, js, etc.)."""
+    return send_from_directory(os.path.join(app.static_folder, 'settlers'), path)
 
 
 @app.route('/api/resources')
