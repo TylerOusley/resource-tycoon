@@ -57,7 +57,11 @@ cd_socket_to_game = {}  # socket_id -> game_id mapping
 @app.route('/')
 def portal():
     """Serve the game portal/launcher page"""
-    return render_template('portal.html')
+    from flask import make_response
+    resp = make_response(render_template('portal.html'))
+    resp.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    resp.headers['Pragma'] = 'no-cache'
+    return resp
 
 
 @app.route('/resource-tycoon')
