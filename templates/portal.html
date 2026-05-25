@@ -457,32 +457,35 @@
                 </div>
             </div>
 
-            <!-- Settlers of Catan -->
-            <div class="game-card" onclick="window.location.href='/settlers/'">
+            <!-- Settlers of Catan (work in progress) -->
+            <div class="game-card" style="pointer-events: none;">
                 <div class="game-thumbnail">
                     <span class="game-icon">⬡</span>
                 </div>
                 <div class="game-info">
                     <h3 class="game-title">Settlers of Catan</h3>
                     <p class="game-description">
-                        Build settlements, trade resources, and race to 10 victory points on a classic hex board.
-                        Play vs bots with Colonist-inspired gameplay.
+                        Classic hex-board strategy — settlements, resources, and victory points.
+                        This build is in active development and is not ready for players yet.
                     </p>
                     <div class="game-tags">
+                        <span class="tag tag-coming-soon">Work in Progress</span>
                         <span class="tag tag-strategy">Strategy</span>
                         <span class="tag tag-multiplayer">Board Game</span>
-                        <span class="tag tag-idle">Bots</span>
                     </div>
-                    <button class="play-button">
-                        ▶ Play Now
+                    <button class="play-button" disabled>
+                        🔧 Not Ready Yet
                     </button>
+                </div>
+                <div class="coming-soon-overlay">
+                    <span class="coming-soon-text">Work in Progress</span>
                 </div>
             </div>
         </div>
     </main>
 
     <footer>
-        <p>© 2024 Game Portal • Built with ❤️ • <span id="portal-version">v2026-settlers</span></p>
+        <p>© 2024 Game Portal • Built with ❤️</p>
     </footer>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
