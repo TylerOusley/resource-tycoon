@@ -102,11 +102,21 @@ export function getVertexPixel(v, offsetX, offsetY) {
   return { x: vx, y: vy };
 }
 
+function getCanvasSize(canvas) {
+  const rect = canvas.getBoundingClientRect();
+  let w = Math.floor(rect.width);
+  let h = Math.floor(rect.height);
+  if (w < 80 || h < 80) {
+    w = parseInt(canvas.getAttribute("width"), 10) || 640;
+    h = parseInt(canvas.getAttribute("height"), 10) || 460;
+  }
+  return { w, h };
+}
+
 export function renderBoard(canvas, tiles, options = {}) {
   const ctx = canvas.getContext("2d");
   const dpr = window.devicePixelRatio || 1;
-  const w = canvas.clientWidth || 600;
-  const h = canvas.clientHeight || 600;
+  const { w, h } = getCanvasSize(canvas);
   canvas.width = w * dpr;
   canvas.height = h * dpr;
   ctx.scale(dpr, dpr);

@@ -12,10 +12,12 @@ export function renderHome(root) {
       ${renderHeader("play")}
       <section class="home-hero">
         <div class="home-map-bg">
-          <canvas id="home-map-canvas" width="700" height="500"></canvas>
+          <canvas id="home-map-canvas" class="map-canvas" width="640" height="460"></canvas>
         </div>
         <div class="home-content">
-          <h1>#1 Free Online Settlers of Catan Alternative</h1>
+          <p class="home-eyebrow">Bobby B Games</p>
+          <h1>Settlers of Catan</h1>
+          <p class="home-subtitle">Build, trade, and reach 10 victory points on the classic hex board.</p>
           <div class="home-stats">
             <span><strong>${online.toLocaleString()}</strong> online</span>
             <span><strong>${gamesToday.toLocaleString()}</strong> games today</span>
@@ -42,7 +44,9 @@ export function renderHome(root) {
 
   const canvas = root.querySelector("#home-map-canvas");
   const tiles = generateBoard(false);
-  renderBoard(canvas, tiles);
+  const drawPreview = () => renderBoard(canvas, tiles);
+  drawPreview();
+  requestAnimationFrame(drawPreview);
 
   let mode = "bots";
   root.querySelectorAll(".mode-tab").forEach((tab) => {

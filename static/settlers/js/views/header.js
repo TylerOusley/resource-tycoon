@@ -1,18 +1,18 @@
 export function renderHeader(active = "play") {
   return `
     <header class="site-header">
-      <a href="#/" class="logo">
-        <span class="logo-icon">⬡</span>
-        <span>Settlers</span>
-      </a>
-      <nav>
-        <a href="#/" class="${active === "play" ? "active" : ""}">Play</a>
-        <button class="nav-link" type="button">Rooms</button>
-        <button class="nav-link" type="button">Leaderboards</button>
-        <button class="nav-link" type="button">Store</button>
+      <div class="header-left">
+        <a href="/" class="portal-back">← Portal</a>
+        <a href="#/" class="logo">
+          <span class="logo-icon">⬡</span>
+          <span>Settlers of Catan</span>
+        </a>
+      </div>
+      <nav class="header-nav" aria-label="Game sections">
+        <a href="#/" class="nav-link ${active === "play" ? "active" : ""}">Play</a>
       </nav>
       <div class="header-right">
-        <button type="button" class="btn-login">Login</button>
+        <span class="header-badge">Beta</span>
       </div>
     </header>
   `;

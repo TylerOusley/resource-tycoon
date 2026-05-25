@@ -13,7 +13,7 @@ export function renderLobby(root) {
       <div class="lobby-layout">
         <main class="lobby-main">
           <div class="lobby-map-preview">
-            <canvas id="lobby-map" width="480" height="480"></canvas>
+            <canvas id="lobby-map" class="map-canvas" width="480" height="480"></canvas>
           </div>
         </main>
         <aside class="lobby-sidebar">

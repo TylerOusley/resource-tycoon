@@ -23,7 +23,7 @@ export function renderGame(root) {
       ${renderHeader("play")}
       <div class="game-layout">
         <div class="game-board-wrap">
-          <canvas id="game-board" width="900" height="700"></canvas>
+          <canvas id="game-board" class="map-canvas game-canvas" width="880" height="640"></canvas>
         </div>
         <aside class="game-sidebar">
           <div class="game-sidebar-section">

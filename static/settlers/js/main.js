@@ -19,6 +19,8 @@ function navigate() {
   const route = getRoute();
   const render = routes[route] || renderHome;
   window.removeEventListener("resize", () => {});
+  app.classList.remove("app-loading");
+  app.setAttribute("aria-busy", "false");
   render(app);
 }
 
